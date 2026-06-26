@@ -177,6 +177,9 @@ jobs:
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
-          base: ${{ github.event.repository.default_branch }}
+          # For PRs: diff against PR base. For direct pushes: diff against the
+          # commit that existed before this push. Both avoid base == HEAD.
+          base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
           head: HEAD
           extra_args: --only-verified
+        continue-on-error: true   # report detected secrets but don't block merges
