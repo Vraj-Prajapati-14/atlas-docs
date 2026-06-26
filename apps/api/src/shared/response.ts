@@ -42,7 +42,7 @@ export function fail(
     error: { code, message },
   }
   if (details !== undefined) {
-    ;(body['error'] as Record<string, unknown>)['details'] = details
+    (body['error'] as Record<string, unknown>)['details'] = details
   }
   return reply.code(statusCode).send(body)
 }

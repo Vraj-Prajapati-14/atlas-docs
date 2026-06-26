@@ -9,7 +9,7 @@ import { fail } from '../response.js'
 
 export function registerErrorHandler(app: FastifyInstance): void {
   app.setErrorHandler(
-    (error: FastifyError | Error, request: FastifyRequest, reply: FastifyReply) => {
+    (error: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
       // Operational errors: safe to send details to client
       if (isAppError(error)) {
         const details = 'details' in error ? error.details : undefined

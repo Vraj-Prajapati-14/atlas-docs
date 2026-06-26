@@ -37,7 +37,7 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
         await prisma.$queryRaw`SELECT 1`
       } catch {
         dbStatus = 'error'
-        reply.code(503)
+        void reply.code(503)
       }
 
       return {

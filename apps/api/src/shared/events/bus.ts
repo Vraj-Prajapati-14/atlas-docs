@@ -1,17 +1,4 @@
-/**
- * In-process event bus — EventEmitter3.
- *
- * Usage:
- *   bus.emit('bill.paid', { tenantId, billId, grandTotalInPaise })
- *   bus.on('bill.paid', handler)
- *
- * Phase 2: replace bus.emit → Kafka producer, bus.on → Kafka consumer.
- * The call sites stay the same — only this file changes.
- */
-
-import EventEmitter from 'eventemitter3'
-
-// ─── Event payload types ─────────────────────────────────────────────────────
+import { EventEmitter } from 'eventemitter3'
 
 export interface BillPaidEvent {
   tenantId: string
@@ -55,8 +42,6 @@ export interface BillVoidedEvent {
   reason: string
 }
 
-// ─── Event map ───────────────────────────────────────────────────────────────
-
 export interface AtlasEvents {
   'bill.paid': (event: BillPaidEvent) => void
   'bill.voided': (event: BillVoidedEvent) => void
@@ -65,19 +50,4 @@ export interface AtlasEvents {
   'inventory.low_stock': (event: InventoryLowStockEvent) => void
 }
 
-// ─── Singleton bus ────────────────────────────────────────────────────────────
-
-class AtlasEventBus extends EventEmitter<AtlasEvents> {
-  /** Emit an event and log it in development. */
-  emit<K extends keyof AtlasEvents>(
-    event: K,
-    ...args: Parameters<AtlasEvents[K]>
-  ): boolean {
-    if (process.env['NODE_ENV'] === 'development') {
-      console.debug(`[bus] ${String(event)}`, args[0])
-    }
-    return super.emit(event, ...args)
-  }
-}
-
-export const bus = new AtlasEventBus()
+export const bus = new EventEmitter<AtlasEvents>()
