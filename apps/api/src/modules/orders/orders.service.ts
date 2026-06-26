@@ -99,6 +99,7 @@ async function resolveItemPrices(tenantId: string, items: OrderItemInputType[]) 
       unitPriceInPaise,
       totalPriceInPaise,
       gstRate: menuItem.gstRate,
+      isGSTInclusive: menuItem.isGSTInclusive,
       note: item.note as string | undefined,
       addOns: resolvedAddOns,
     }
@@ -182,6 +183,7 @@ export async function createOrder(tenantId: string, staffId: string, data: Creat
                     unitPriceInPaise: item.unitPriceInPaise,
                     totalPriceInPaise: item.totalPriceInPaise,
                     gstRate: item.gstRate,
+                    isGSTInclusive: item.isGSTInclusive,
                     ...(item.note ? { note: item.note } : {}),
                     ...(item.addOns.length > 0
                       ? {
@@ -310,6 +312,7 @@ export async function addItems(tenantId: string, orderId: string, data: AddItems
       unitPriceInPaise: item.unitPriceInPaise,
       totalPriceInPaise: item.totalPriceInPaise,
       gstRate: item.gstRate,
+      isGSTInclusive: item.isGSTInclusive,
       ...(item.note ? { note: item.note } : {}),
     })),
   })
@@ -570,6 +573,7 @@ export async function fireKOT(tenantId: string, orderId: string, data: FireKOTIn
             unitPriceInPaise: item.unitPriceInPaise,
             totalPriceInPaise: item.totalPriceInPaise,
             gstRate: item.gstRate,
+            isGSTInclusive: item.isGSTInclusive,
             ...(item.note ? { note: item.note } : {}),
             ...(item.addOns.length > 0
               ? {

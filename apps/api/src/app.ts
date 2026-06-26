@@ -17,6 +17,7 @@ import { uploadsPlugin } from './modules/uploads/index.js'
 import { tablesPlugin } from './modules/tables/index.js'
 import { ordersPlugin } from './modules/orders/index.js'
 import { kotsPlugin } from './modules/kots/index.js'
+import { billingPlugin } from './modules/billing/index.js'
 
 export async function buildApp() {
   const app = Fastify({
@@ -97,6 +98,7 @@ export async function buildApp() {
       await v1.register(tablesPlugin, { prefix: '/tables' })
       await v1.register(ordersPlugin, { prefix: '/orders' })
       await v1.register(kotsPlugin, { prefix: '/kots' })
+      await v1.register(billingPlugin, { prefix: '/bills' })
       v1.log.info('API v1 routes registered')
     },
     { prefix: '/api/v1' },
