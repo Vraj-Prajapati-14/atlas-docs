@@ -21,6 +21,7 @@ import { billingPlugin } from './modules/billing/index.js'
 import { inventoryPlugin } from './modules/inventory/index.js'
 import { reportsPlugin } from './modules/reports/index.js'
 import { notificationsPlugin } from './modules/notifications/index.js'
+import { aggregatorsPlugin } from './modules/aggregators/index.js'
 
 export async function buildApp() {
   const app = Fastify({
@@ -105,6 +106,7 @@ export async function buildApp() {
       await v1.register(inventoryPlugin, { prefix: '/inventory' })
       await v1.register(reportsPlugin, { prefix: '/reports' })
       await v1.register(notificationsPlugin, { prefix: '/notifications' })
+      await v1.register(aggregatorsPlugin, { prefix: '/aggregators' })
       v1.log.info('API v1 routes registered')
     },
     { prefix: '/api/v1' },
