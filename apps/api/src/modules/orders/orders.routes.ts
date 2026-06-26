@@ -6,6 +6,7 @@ import { authenticate } from '../../shared/middleware/authenticate.js'
 import {
   AddItemsBody,
   CreateOrderBody,
+  FireKOTBody,
   ListOrdersQuery,
   OrderIdParam,
   OrderItemParams,
@@ -18,6 +19,7 @@ import {
   cancelOrder,
   confirmOrder,
   createOrder,
+  fireKOT,
   getOrder,
   listOrders,
   removeItem,
@@ -113,5 +115,13 @@ export async function ordersRoutes(app: FastifyInstance): Promise<void> {
     const body = validate(TransferTableBody, request.body)
     const order = await transferTable(request.user.tenantId, id, body.newTableId)
     return ok(reply, order)
+  })
+
+  // ─── Fire new KOT — add items to a confirmed/in-progress order ───────────────
+  app.post('/:id/kot', { preHandler: authenticate }, async (request, reply) => {
+    const { id } = validate(OrderIdParam, request.params)
+    const body = validate(FireKOTBody, request.body)
+    const kot = await fireKOT(request.user.tenantId, id, body)
+    return created(reply, kot)
   })
 }

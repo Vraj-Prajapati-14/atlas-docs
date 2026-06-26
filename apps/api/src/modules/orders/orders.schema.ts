@@ -80,3 +80,7 @@ export type AddItemsInput = z.output<typeof AddItemsBody>
 export type UpdateItemInput = z.output<typeof UpdateItemBody>
 export type ListOrdersInput = z.output<typeof ListOrdersQuery>
 export type OrderItemInputType = z.output<typeof OrderItemInput>
+
+// FireKOT — add items to a confirmed order as a new KOT
+export const FireKOTBody = AddItemsBody
+export type FireKOTInput = AddItemsInput

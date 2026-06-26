@@ -5,6 +5,7 @@ import { buildPagination } from '../../shared/response.js'
 import type {
   AddItemsInput,
   CreateOrderInput,
+  FireKOTInput,
   ListOrdersInput,
   OrderItemInputType,
   UpdateItemInput,
@@ -530,5 +531,94 @@ export async function transferTable(tenantId: string, orderId: string, newTableI
       data: { tableId: newTableId },
       include: ORDER_DETAIL_INCLUDE,
     })
+  })
+}
+
+// ─── Fire KOT: add items to a confirmed/in-progress order ────────────────────
+// Used when a table wants to order more food after the first KOT was already sent to kitchen.
+
+export async function fireKOT(tenantId: string, orderId: string, data: FireKOTInput) {
+  const order = await prisma.order.findFirst({
+    where: { id: orderId, tenantId },
+    select: { id: true, status: true },
+  })
+  if (!order) throw new NotFoundError('Order', orderId)
+
+  const fireableStatuses: string[] = [
+    OrderStatus.CONFIRMED,
+    OrderStatus.IN_PROGRESS,
+    OrderStatus.READY,
+    OrderStatus.SERVED,
+  ]
+  if (!fireableStatuses.includes(order.status)) {
+    throw new BadRequestError(`Cannot add items to an order in ${order.status} status`)
+  }
+
+  const resolvedItems = await resolveItemPrices(tenantId, data.items)
+
+  return prisma.$transaction(async (tx) => {
+    // Create the new order items
+    const createdItems = await Promise.all(
+      resolvedItems.map((item) =>
+        tx.orderItem.create({
+          data: {
+            orderId,
+            menuItemId: item.menuItemId,
+            menuItemName: item.menuItemName,
+            ...(item.variantId ? { variantId: item.variantId, variantName: item.variantName } : {}),
+            quantity: item.quantity,
+            unitPriceInPaise: item.unitPriceInPaise,
+            totalPriceInPaise: item.totalPriceInPaise,
+            gstRate: item.gstRate,
+            ...(item.note ? { note: item.note } : {}),
+            ...(item.addOns.length > 0
+              ? {
+                  addOns: {
+                    create: item.addOns.map((a) => ({
+                      addOnId: a.addOnId,
+                      addOnName: a.addOnName,
+                      priceInPaise: a.priceInPaise,
+                    })),
+                  },
+                }
+              : {}),
+          },
+          select: { id: true, menuItemName: true, variantName: true, quantity: true, note: true },
+        }),
+      ),
+    )
+
+    // Generate KOT number
+    const prefix = todayPrefix('KOT')
+    const last = await tx.kOT.findFirst({
+      where: { tenantId, kotNumber: { startsWith: prefix } },
+      orderBy: { kotNumber: 'desc' },
+      select: { kotNumber: true },
+    })
+    const kotNumber = buildOrderNumber(last?.kotNumber ?? null, prefix, 3)
+
+    // Create new KOT
+    const kot = await tx.kOT.create({
+      data: {
+        tenantId,
+        orderId,
+        kotNumber,
+        items: {
+          create: createdItems.map((item) => ({
+            orderItemId: item.id,
+            menuItemName: item.menuItemName,
+            ...(item.variantName ? { variantName: item.variantName } : {}),
+            quantity: item.quantity,
+            ...(item.note ? { note: item.note } : {}),
+          })),
+        },
+      },
+      include: {
+        items: true,
+        order: { select: { id: true, orderNumber: true, type: true } },
+      },
+    })
+
+    return kot
   })
 }
