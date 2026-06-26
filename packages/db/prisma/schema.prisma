@@ -508,6 +508,7 @@ model OrderItem {
   unitPriceInPaise BigInt
   totalPriceInPaise BigInt
   gstRate         Int      @default(5)
+  isGSTInclusive  Boolean  @default(false)  // snapshot from MenuItem
   note            String?
   status          String   @default("PENDING")
   createdAt       DateTime @default(now())

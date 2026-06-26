@@ -14,6 +14,14 @@ import { healthRoutes } from './modules/health/index.js'
 import { authPlugin } from './modules/auth/index.js'
 import { menuPlugin } from './modules/menu/index.js'
 import { uploadsPlugin } from './modules/uploads/index.js'
+import { tablesPlugin } from './modules/tables/index.js'
+import { ordersPlugin } from './modules/orders/index.js'
+import { kotsPlugin } from './modules/kots/index.js'
+import { billingPlugin } from './modules/billing/index.js'
+import { inventoryPlugin } from './modules/inventory/index.js'
+import { reportsPlugin } from './modules/reports/index.js'
+import { notificationsPlugin } from './modules/notifications/index.js'
+import { aggregatorsPlugin } from './modules/aggregators/index.js'
 
 export async function buildApp() {
   const app = Fastify({
@@ -91,6 +99,14 @@ export async function buildApp() {
       await v1.register(authPlugin, { prefix: '/auth' })
       await v1.register(menuPlugin, { prefix: '/menu' })
       await v1.register(uploadsPlugin, { prefix: '/uploads' })
+      await v1.register(tablesPlugin, { prefix: '/tables' })
+      await v1.register(ordersPlugin, { prefix: '/orders' })
+      await v1.register(kotsPlugin, { prefix: '/kots' })
+      await v1.register(billingPlugin, { prefix: '/bills' })
+      await v1.register(inventoryPlugin, { prefix: '/inventory' })
+      await v1.register(reportsPlugin, { prefix: '/reports' })
+      await v1.register(notificationsPlugin, { prefix: '/notifications' })
+      await v1.register(aggregatorsPlugin, { prefix: '/aggregators' })
       v1.log.info('API v1 routes registered')
     },
     { prefix: '/api/v1' },
@@ -103,6 +119,10 @@ function convertBigInts(value: unknown): unknown {
   if (typeof value === 'bigint') return Number(value)
   if (Array.isArray(value)) return value.map(convertBigInts)
   if (value !== null && typeof value === 'object') {
+    // Prisma.Decimal (decimal.js) — serialize as number
+    if (!(value instanceof Date) && typeof (value as { toNumber?: unknown }).toNumber === 'function') {
+      return (value as { toNumber(): number }).toNumber()
+    }
     const out: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
       out[k] = convertBigInts(v)
