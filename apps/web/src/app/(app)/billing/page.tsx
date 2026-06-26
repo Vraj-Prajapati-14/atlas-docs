@@ -1,20 +1,455 @@
-import type { Metadata } from 'next'
-import { Receipt } from 'lucide-react'
+'use client'
 
-export const metadata: Metadata = { title: 'Billing' }
+import { useState } from 'react'
+import { Receipt, CreditCard, X, ChevronRight, Trash2 } from 'lucide-react'
+import { useOrders } from '@/hooks/use-orders'
+import { useBills, useBill, useGenerateBill, useRecordPayment, useVoidBill } from '@/hooks/use-billing'
+import { useAuthStore } from '@/lib/auth-store'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Spinner } from '@/components/ui/spinner'
+import { cn } from '@/lib/utils'
+import type { Bill, PaymentMethod } from '@/lib/api-types'
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function paise(n: number) {
+  return `₹ ${(n / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+}
+
+const PAYMENT_STATUS_BADGE: Record<string, { label: string; variant: 'success' | 'warning' | 'danger' | 'muted' | 'default' | 'info' }> = {
+  PAID:     { label: 'Paid',     variant: 'success' },
+  PARTIAL:  { label: 'Partial',  variant: 'warning' },
+  PENDING:  { label: 'Pending',  variant: 'default' },
+  REFUNDED: { label: 'Refunded', variant: 'info' },
+  FAILED:   { label: 'Failed',   variant: 'danger' },
+}
+
+const PAYMENT_METHODS: { value: PaymentMethod; label: string; icon: string }[] = [
+  { value: 'CASH',   label: 'Cash',     icon: '💵' },
+  { value: 'UPI',    label: 'UPI',      icon: '📲' },
+  { value: 'CARD',   label: 'Card',     icon: '💳' },
+  { value: 'WALLET', label: 'Wallet',   icon: '👛' },
+]
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BillingPage() {
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
+  const [selectedBillId, setSelectedBillId] = useState<string | null>(null)
+  const [tab, setTab] = useState<'to-bill' | 'bills'>('to-bill')
+
+  // SERVED orders (ready to bill) + BILLED orders (already have a bill)
+  const { data: ordersData } = useOrders({ status: 'SERVED', limit: 50 })
+  const { data: billedData }  = useOrders({ status: 'BILLED', limit: 50 })
+  const { data: billsData }   = useBills()
+
+  const servedOrders  = ordersData?.data ?? []
+  const billedOrders  = billedData?.data ?? []
+  const bills         = billsData?.data ?? []
+
+  const generateBill  = useGenerateBill()
+
+  const handleSelectOrder = async (orderId: string) => {
+    setSelectedOrderId(orderId)
+    setSelectedBillId(null)
+    // Check if a bill already exists for this order in our bills list
+    const existing = bills.find((b) => b.orderId === orderId)
+    if (existing) {
+      setSelectedBillId(existing.id)
+    } else {
+      // Auto-generate bill
+      const bill = await generateBill.mutateAsync({ orderId })
+      setSelectedBillId(bill.id)
+    }
+  }
+
+  const handleSelectBill = (billId: string) => {
+    setSelectedBillId(billId)
+    setSelectedOrderId(null)
+  }
+
   return (
-    <div className="flex flex-col items-center justify-center py-20 gap-4">
-      <div className="flex items-center justify-center w-14 h-14 rounded-xl bg-primary-500/10">
-        <Receipt size={24} className="text-primary-500" />
+    <div className="flex h-[calc(100dvh-56px)] -m-6">
+      {/* ── Left: order/bill list ──────────────────────────────────────── */}
+      <div className="flex flex-col w-[280px] shrink-0 border-r border-border bg-background">
+        {/* Tabs */}
+        <div className="flex border-b border-border">
+          <TabBtn active={tab === 'to-bill'} onClick={() => setTab('to-bill')}>
+            To Bill {servedOrders.length > 0 && <span className="ml-1 text-primary-500">({servedOrders.length})</span>}
+          </TabBtn>
+          <TabBtn active={tab === 'bills'} onClick={() => setTab('bills')}>
+            Bills
+          </TabBtn>
+        </div>
+
+        <div className="flex-1 overflow-y-auto py-2">
+          {tab === 'to-bill' ? (
+            servedOrders.length === 0 && billedOrders.length === 0 ? (
+              <EmptyState message="No orders ready to bill" />
+            ) : (
+              <>
+                {servedOrders.map((o) => (
+                  <ListRow
+                    key={o.id}
+                    label={o.table?.name ?? `Order #${o.orderNumber}`}
+                    sub={`${o.items.length} items · ${paise(o.subtotalInPaise)}`}
+                    badge={<Badge variant="warning">Served</Badge>}
+                    active={selectedOrderId === o.id}
+                    loading={generateBill.isPending && selectedOrderId === o.id}
+                    onClick={() => handleSelectOrder(o.id)}
+                  />
+                ))}
+                {billedOrders.map((o) => {
+                  const b = bills.find((bl) => bl.orderId === o.id)
+                  return (
+                    <ListRow
+                      key={o.id}
+                      label={o.table?.name ?? `Order #${o.orderNumber}`}
+                      sub={b ? `Bill #${b.billNumber}` : `${o.items.length} items`}
+                      badge={b ? <Badge variant={PAYMENT_STATUS_BADGE[b.paymentStatus]?.variant ?? 'muted'}>{PAYMENT_STATUS_BADGE[b.paymentStatus]?.label}</Badge> : null}
+                      active={selectedBillId === b?.id}
+                      onClick={() => b && handleSelectBill(b.id)}
+                    />
+                  )
+                })}
+              </>
+            )
+          ) : (
+            bills.length === 0 ? (
+              <EmptyState message="No bills today" />
+            ) : (
+              bills.map((b) => (
+                <ListRow
+                  key={b.id}
+                  label={b.order.table?.name ?? `Order #${b.order.orderNumber}`}
+                  sub={`Bill #${b.billNumber} · ${paise(b.grandTotalInPaise)}`}
+                  badge={<Badge variant={PAYMENT_STATUS_BADGE[b.paymentStatus]?.variant ?? 'muted'}>{PAYMENT_STATUS_BADGE[b.paymentStatus]?.label}</Badge>}
+                  active={selectedBillId === b.id}
+                  onClick={() => handleSelectBill(b.id)}
+                />
+              ))
+            )
+          )}
+        </div>
       </div>
-      <div className="text-center">
-        <p className="text-sm font-semibold text-foreground">Billing — coming in Phase 3</p>
-        <p className="text-xs text-muted-foreground mt-1 max-w-xs">
-          GST invoice generation, split payment, UPI/cash/card, and receipt printing.
-        </p>
+
+      {/* ── Right: bill detail ─────────────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto bg-background-card">
+        {selectedBillId ? (
+          <BillDetail billId={selectedBillId} />
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
+            <Receipt size={40} className="opacity-15" />
+            <p className="text-sm">Select an order to generate a bill</p>
+          </div>
+        )}
       </div>
+    </div>
+  )
+}
+
+// ─── Bill Detail Panel ────────────────────────────────────────────────────────
+
+function BillDetail({ billId }: { billId: string }) {
+  const { data: bill, isLoading } = useBill(billId)
+  const [showPayment, setShowPayment] = useState(false)
+  const [showVoidConfirm, setShowVoidConfirm] = useState(false)
+  const voidBill = useVoidBill()
+  const user = useAuthStore((s) => s.user)
+  const canVoid = user?.role === 'OWNER' || user?.role === 'MANAGER'
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-full"><Spinner size="lg" className="text-primary-500" /></div>
+  }
+
+  if (!bill) return null
+
+  const paidAmount = bill.payments.reduce((s, p) => s + p.amountInPaise, 0)
+  const balance = bill.grandTotalInPaise - paidAmount
+  const ps = PAYMENT_STATUS_BADGE[bill.paymentStatus] ?? { label: bill.paymentStatus, variant: 'muted' as const }
+
+  return (
+    <div className="max-w-xl mx-auto p-6 space-y-5">
+      {/* Bill header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-lg font-bold">Bill #{bill.billNumber}</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {bill.order.table?.name ?? `Order #${bill.order.orderNumber}`}
+            {bill.order.guestCount ? ` · ${bill.order.guestCount} covers` : ''}
+          </p>
+        </div>
+        <Badge variant={ps.variant}>{ps.label}</Badge>
+      </div>
+
+      {/* Line items */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="px-4 py-2 border-b border-border bg-background">
+          <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Items</span>
+        </div>
+        <div className="divide-y divide-border">
+          {bill.order.items.map((item) => (
+            <div key={item.id} className="flex items-center justify-between px-4 py-2.5">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-foreground truncate">
+                  {item.menuItemName}{item.variantName ? ` (${item.variantName})` : ''}
+                  <span className="ml-1.5 text-xs text-muted-foreground">×{item.quantity}</span>
+                </p>
+                {item.gstRate > 0 && (
+                  <p className="text-[10px] text-muted-foreground">
+                    GST {item.gstRate}% {item.isGSTInclusive ? '(incl.)' : '(excl.)'}
+                  </p>
+                )}
+              </div>
+              <span className="tabular-nums text-sm font-semibold text-foreground ml-4">{paise(item.totalPriceInPaise)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Totals */}
+      <div className="rounded-xl border border-border bg-card p-4 space-y-2">
+        <TotalRow label="Subtotal" value={paise(bill.subtotalInPaise)} />
+        {bill.discountInPaise > 0 && (
+          <TotalRow label="Discount" value={`−${paise(bill.discountInPaise)}`} className="text-success" />
+        )}
+        {bill.serviceChargeInPaise > 0 && (
+          <TotalRow label="Service charge" value={paise(bill.serviceChargeInPaise)} />
+        )}
+        {(bill.cgstInPaise > 0 || bill.sgstInPaise > 0) && (
+          <>
+            <TotalRow label={`CGST`} value={paise(bill.cgstInPaise)} />
+            <TotalRow label={`SGST`} value={paise(bill.sgstInPaise)} />
+          </>
+        )}
+        {bill.igstInPaise > 0 && <TotalRow label="IGST" value={paise(bill.igstInPaise)} />}
+        {bill.roundOffInPaise !== 0 && (
+          <TotalRow label="Round off" value={paise(bill.roundOffInPaise)} />
+        )}
+        <div className="border-t border-border pt-2 flex justify-between items-center">
+          <span className="text-sm font-bold">Grand Total</span>
+          <span className="text-lg font-extrabold text-primary-500 tabular-nums">{paise(bill.grandTotalInPaise)}</span>
+        </div>
+      </div>
+
+      {/* Payments recorded */}
+      {bill.payments.length > 0 && (
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <div className="px-4 py-2 border-b border-border bg-background">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Payments</span>
+          </div>
+          {bill.payments.map((p) => (
+            <div key={p.id} className="flex justify-between items-center px-4 py-2.5 border-b border-border/50 last:border-0">
+              <div className="flex items-center gap-2">
+                <CreditCard size={13} className="text-muted-foreground" />
+                <span className="text-sm">{p.method}</span>
+                {p.referenceId && <span className="text-xs text-muted-foreground">· {p.referenceId}</span>}
+              </div>
+              <span className="tabular-nums text-sm font-semibold text-success">{paise(p.amountInPaise)}</span>
+            </div>
+          ))}
+          {balance > 0 && (
+            <div className="flex justify-between items-center px-4 py-2 bg-danger/5">
+              <span className="text-sm font-semibold text-danger">Balance due</span>
+              <span className="tabular-nums text-sm font-bold text-danger">{paise(balance)}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Actions */}
+      {bill.paymentStatus !== 'PAID' && bill.paymentStatus !== 'REFUNDED' && (
+        <>
+          {!showPayment ? (
+            <Button className="w-full" onClick={() => setShowPayment(true)}>
+              <CreditCard size={15} /> Record Payment
+            </Button>
+          ) : (
+            <PaymentForm
+              bill={bill}
+              balance={balance}
+              onClose={() => setShowPayment(false)}
+            />
+          )}
+        </>
+      )}
+
+      {bill.paymentStatus === 'PAID' && (
+        <div className="flex items-center justify-center gap-2 py-3 rounded-xl bg-success/10 border border-success/20 text-success">
+          <span className="text-lg">✓</span>
+          <span className="text-sm font-semibold">Bill fully settled</span>
+        </div>
+      )}
+
+      {/* Void — OWNER / MANAGER only, not on already-voided bills */}
+      {canVoid && bill.paymentStatus !== 'REFUNDED' && (
+        showVoidConfirm ? (
+          <div className="rounded-xl border border-danger/30 bg-danger/5 p-4 space-y-3">
+            <p className="text-sm font-semibold text-danger">Void this bill?</p>
+            <p className="text-xs text-muted-foreground">This action cannot be undone. Any payments will need to be manually refunded.</p>
+            <div className="flex gap-2">
+              <Button
+                variant="danger"
+                className="flex-1"
+                disabled={voidBill.isPending}
+                onClick={() => voidBill.mutate(
+                  { billId: bill.id, reason: 'Voided by manager' },
+                  { onSuccess: () => setShowVoidConfirm(false) },
+                )}
+              >
+                {voidBill.isPending ? <Spinner size="xs" /> : 'Yes, void bill'}
+              </Button>
+              <Button variant="ghost" className="flex-1" onClick={() => setShowVoidConfirm(false)}>Cancel</Button>
+            </div>
+          </div>
+        ) : (
+          <Button variant="ghost" size="sm" className="text-danger/60 hover:text-danger w-full" onClick={() => setShowVoidConfirm(true)}>
+            <Trash2 size={13} /> Void Bill
+          </Button>
+        )
+      )}
+    </div>
+  )
+}
+
+// ─── Payment Form ─────────────────────────────────────────────────────────────
+
+function PaymentForm({ bill, balance, onClose }: { bill: Bill; balance: number; onClose: () => void }) {
+  const [method, setMethod] = useState<PaymentMethod>('CASH')
+  const [amount, setAmount] = useState(String((balance / 100).toFixed(2)))
+  const [ref, setRef] = useState('')
+  const recordPayment = useRecordPayment()
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const paise = Math.round(parseFloat(amount) * 100)
+    if (!paise || paise <= 0) return
+    await recordPayment.mutateAsync({ billId: bill.id, method, amountInPaise: paise, referenceId: ref || undefined })
+    onClose()
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="rounded-xl border border-border bg-card p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-bold">Record Payment</h3>
+        <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground"><X size={15} /></button>
+      </div>
+
+      {/* Method selector */}
+      <div className="grid grid-cols-4 gap-2">
+        {PAYMENT_METHODS.map((m) => (
+          <button
+            key={m.value}
+            type="button"
+            onClick={() => setMethod(m.value)}
+            className={cn(
+              'flex flex-col items-center gap-1 py-2.5 rounded-lg border text-xs font-semibold transition-all',
+              method === m.value
+                ? 'border-primary-500 bg-primary-500/10 text-primary-500'
+                : 'border-border text-muted-foreground hover:border-primary-500/40',
+            )}
+          >
+            <span className="text-lg">{m.icon}</span>
+            {m.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Amount */}
+      <div className="space-y-1.5">
+        <Label>Amount (₹)</Label>
+        <Input
+          type="number"
+          step="0.01"
+          min="1"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          className="font-mono text-base"
+        />
+      </div>
+
+      {/* Reference (UPI/Card) */}
+      {(method === 'UPI' || method === 'CARD') && (
+        <div className="space-y-1.5">
+          <Label>{method === 'UPI' ? 'UPI Reference / UTR' : 'Card last 4 digits'}</Label>
+          <Input
+            type="text"
+            placeholder={method === 'UPI' ? '123456789012' : '4242'}
+            value={ref}
+            onChange={(e) => setRef(e.target.value)}
+          />
+        </div>
+      )}
+
+      <Button type="submit" className="w-full" disabled={recordPayment.isPending}>
+        {recordPayment.isPending ? <Spinner size="sm" /> : `Confirm ${method} Payment`}
+      </Button>
+    </form>
+  )
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex-1 px-3 py-3 text-xs font-semibold border-b-2 -mb-px transition-colors duration-100',
+        active ? 'border-primary-500 text-primary-500' : 'border-transparent text-muted-foreground hover:text-foreground',
+      )}
+    >
+      {children}
+    </button>
+  )
+}
+
+function ListRow({
+  label, sub, badge, active, loading, onClick,
+}: {
+  label: string
+  sub: string
+  badge?: React.ReactNode
+  active?: boolean
+  loading?: boolean
+  onClick?: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'w-full flex items-center gap-3 px-4 py-3 text-left transition-colors duration-100',
+        active ? 'bg-primary-500/10 border-r-2 border-primary-500' : 'hover:bg-white/3',
+      )}
+    >
+      {loading ? <Spinner size="xs" className="text-primary-500 shrink-0" /> : <ChevronRight size={13} className="text-muted-foreground shrink-0" />}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-foreground truncate">{label}</p>
+        <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{sub}</p>
+      </div>
+      {badge}
+    </button>
+  )
+}
+
+function TotalRow({ label, value, className }: { label: string; value: string; className?: string }) {
+  return (
+    <div className={cn('flex justify-between items-center', className)}>
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="tabular-nums text-sm font-medium text-foreground">{value}</span>
+    </div>
+  )
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="flex items-center justify-center h-32 text-xs text-muted-foreground">
+      {message}
     </div>
   )
 }

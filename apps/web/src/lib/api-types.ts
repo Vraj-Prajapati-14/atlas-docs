@@ -133,6 +133,92 @@ export interface CartItem {
   addOns: { addOnId: string; name: string; priceInPaise: number }[]
 }
 
+// ─── KOTs ────────────────────────────────────────────────────────────────────
+
+export type KOTStatus = 'PENDING' | 'ACCEPTED' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED'
+
+export interface KOTItem {
+  id: string
+  kotId: string
+  menuItemName: string
+  variantName: string | null
+  quantity: number
+  note: string | null
+}
+
+export interface KOT {
+  id: string
+  orderId: string
+  kotNumber: string
+  status: KOTStatus
+  printedAt: string | null
+  doneAt: string | null
+  createdAt: string
+  updatedAt: string
+  items: KOTItem[]
+  order: {
+    id: string
+    orderNumber: number
+    type: string
+    guestCount: number | null
+    note: string | null
+    table: { id: string; name: string; floorId: string | null } | null
+  }
+}
+
+// ─── Billing ─────────────────────────────────────────────────────────────────
+
+export type PaymentMethod = 'CASH' | 'CARD' | 'UPI' | 'WALLET' | 'CREDIT' | 'COMPLIMENTARY'
+export type PaymentStatus = 'PENDING' | 'PARTIAL' | 'PAID' | 'REFUNDED' | 'FAILED'
+
+export interface Payment {
+  id: string
+  billId: string
+  method: PaymentMethod
+  amountInPaise: number
+  referenceId: string | null
+  paidAt: string
+}
+
+export interface BillOrderItem {
+  id: string
+  menuItemName: string
+  variantName: string | null
+  quantity: number
+  unitPriceInPaise: number
+  totalPriceInPaise: number
+  gstRate: number
+  isGSTInclusive: boolean
+}
+
+export interface Bill {
+  id: string
+  orderId: string
+  billNumber: string
+  subtotalInPaise: number
+  discountInPaise: number
+  serviceChargeInPaise: number
+  cgstInPaise: number
+  sgstInPaise: number
+  igstInPaise: number
+  roundOffInPaise: number
+  grandTotalInPaise: number
+  paymentStatus: PaymentStatus
+  customerName: string | null
+  customerPhone: string | null
+  customerGSTIN: string | null
+  createdAt: string
+  order: {
+    id: string
+    orderNumber: number
+    type: string
+    guestCount: number | null
+    table: { id: string; name: string } | null
+    items: BillOrderItem[]
+  }
+  payments: Payment[]
+}
+
 // ─── Pagination ──────────────────────────────────────────────────────────────
 
 export interface PaginationMeta {
