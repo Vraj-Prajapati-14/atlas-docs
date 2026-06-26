@@ -2,6 +2,7 @@ import { prisma } from '@atlas/db'
 import { OrderStatus, OrderType, TableStatus } from '@atlas/types'
 import { BadRequestError, ConflictError, NotFoundError } from '../../shared/errors.js'
 import { buildPagination } from '../../shared/response.js'
+import { deductStockForOrder } from '../inventory/inventory.service.js'
 import type {
   AddItemsInput,
   CreateOrderInput,
@@ -456,11 +457,16 @@ export async function serveOrder(tenantId: string, orderId: string) {
     throw new BadRequestError(`Cannot mark order as served — current status is ${order.status}`)
   }
 
-  return prisma.order.update({
+  const updated = await prisma.order.update({
     where: { id: orderId },
     data: { status: OrderStatus.SERVED },
     include: ORDER_DETAIL_INCLUDE,
   })
+
+  // Fire-and-forget — don't fail the serve if recipes aren't configured yet
+  deductStockForOrder(orderId, tenantId).catch(() => undefined)
+
+  return updated
 }
 
 export async function cancelOrder(tenantId: string, orderId: string) {

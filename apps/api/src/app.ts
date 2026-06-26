@@ -18,6 +18,7 @@ import { tablesPlugin } from './modules/tables/index.js'
 import { ordersPlugin } from './modules/orders/index.js'
 import { kotsPlugin } from './modules/kots/index.js'
 import { billingPlugin } from './modules/billing/index.js'
+import { inventoryPlugin } from './modules/inventory/index.js'
 
 export async function buildApp() {
   const app = Fastify({
@@ -99,6 +100,7 @@ export async function buildApp() {
       await v1.register(ordersPlugin, { prefix: '/orders' })
       await v1.register(kotsPlugin, { prefix: '/kots' })
       await v1.register(billingPlugin, { prefix: '/bills' })
+      await v1.register(inventoryPlugin, { prefix: '/inventory' })
       v1.log.info('API v1 routes registered')
     },
     { prefix: '/api/v1' },
@@ -111,6 +113,10 @@ function convertBigInts(value: unknown): unknown {
   if (typeof value === 'bigint') return Number(value)
   if (Array.isArray(value)) return value.map(convertBigInts)
   if (value !== null && typeof value === 'object') {
+    // Prisma.Decimal (decimal.js) — serialize as number
+    if (!(value instanceof Date) && typeof (value as { toNumber?: unknown }).toNumber === 'function') {
+      return (value as { toNumber(): number }).toNumber()
+    }
     const out: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
       out[k] = convertBigInts(v)
