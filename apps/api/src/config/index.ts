@@ -35,6 +35,8 @@ const envSchema = z.object({
   MSG91_SENDER_ID: z.string().default('ATLAS'),
   MSG91_OTP_TEMPLATE_ID: z.string().optional(),
 
+  CRON_SECRET: z.string().min(16).optional(), // shared secret for internal cron endpoints
+
   SENTRY_DSN: z.string().url().optional(),
 
   // ─── AWS / S3 ──────────────────────────────────────────────────────────────

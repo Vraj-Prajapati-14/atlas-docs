@@ -2,6 +2,7 @@ import { prisma } from '@atlas/db'
 import { InventoryTransactionType } from '@atlas/types'
 import { BadRequestError, ConflictError, NotFoundError } from '../../shared/errors.js'
 import { buildPagination } from '../../shared/response.js'
+import { sendLowStockAlert } from '../notifications/notifications.service.js'
 import type {
   CreateCategoryInput,
   UpdateCategoryInput,
@@ -216,6 +217,12 @@ export async function recordTransaction(tenantId: string, data: RecordTransactio
         createdById,
       },
     })
+  }).then((txn) => {
+    // After commit: fire low-stock alert if stock dropped below threshold
+    if (newStock <= item.lowStockThreshold.toNumber()) {
+      sendLowStockAlert(tenantId, item.id).catch(() => undefined)
+    }
+    return txn
   })
 }
 

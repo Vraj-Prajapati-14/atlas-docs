@@ -1,6 +1,7 @@
 import { prisma } from '@atlas/db'
 import { BadRequestError, ConflictError, NotFoundError } from '../../shared/errors.js'
 import { buildPagination } from '../../shared/response.js'
+import { sendBillReceipt } from '../notifications/notifications.service.js'
 import type {
   GenerateBillInput,
   ListBillsInput,
@@ -400,7 +401,14 @@ export async function recordPayment(tenantId: string, billId: string, data: Reco
         .catch(() => undefined) // non-blocking; customer may be anonymous
     }
 
-    return tx.bill.findUnique({ where: { id: billId }, include: BILL_INCLUDE })
+    const updatedBill = await tx.bill.findUnique({ where: { id: billId }, include: BILL_INCLUDE })
+    return updatedBill
+  }).then((updatedBill) => {
+    // After the transaction commits, send receipt if bill is now fully paid
+    if (updatedBill?.paymentStatus === 'PAID') {
+      sendBillReceipt(tenantId, billId).catch(() => undefined)
+    }
+    return updatedBill
   })
 }
 
