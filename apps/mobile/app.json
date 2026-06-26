@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Atlas",
+    "slug": "atlas-restaurant",
+    "version": "1.0.0",
+    "scheme": "atlas",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0C0F18"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "in.atlas-app.mobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0C0F18"
+      },
+      "package": "in.atlasapp.mobile"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
