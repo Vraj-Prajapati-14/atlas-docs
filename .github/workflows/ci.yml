@@ -34,6 +34,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate Prisma client
+        run: pnpm --filter @atlas/db generate
+
       - name: Lint
         run: pnpm lint
 
@@ -56,8 +59,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build packages (types needed before type-check)
-        run: pnpm --filter @atlas/types build && pnpm --filter @atlas/utils build
+      - name: Build shared packages
+        run: |
+          pnpm --filter @atlas/types build
+          pnpm --filter @atlas/utils build
+          pnpm --filter @atlas/db generate
 
       - name: Type check
         run: pnpm type-check

@@ -1,19 +1,16 @@
-import type { NextConfig } from 'next'
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   reactStrictMode: true,
 
   // Transpile local workspace packages
   transpilePackages: ['@atlas/types', '@atlas/utils'],
 
   experimental: {
-    // Faster local dev builds
     turbo: {},
   },
 
   images: {
     remotePatterns: [
-      // Restaurant menu images from CDN
       {
         protocol: 'https',
         hostname: '**.cloudinary.com',
@@ -21,7 +18,6 @@ const nextConfig: NextConfig = {
     ],
   },
 
-  // Security headers
   async headers() {
     return [
       {
@@ -39,7 +35,6 @@ const nextConfig: NextConfig = {
     ]
   },
 
-  // Redirect /health → API health check
   async redirects() {
     return []
   },

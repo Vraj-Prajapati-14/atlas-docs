@@ -27,6 +27,7 @@
     "@prisma/client": "^5.20.0"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "prisma": "^5.20.0",
     "typescript": "^5.5.4",
     "rimraf": "^5.0.10",
