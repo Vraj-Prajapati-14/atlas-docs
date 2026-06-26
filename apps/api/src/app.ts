@@ -12,6 +12,8 @@ import { config } from './config/index.js'
 import { registerErrorHandler } from './shared/middleware/error.js'
 import { healthRoutes } from './modules/health/index.js'
 import { authPlugin } from './modules/auth/index.js'
+import { menuPlugin } from './modules/menu/index.js'
+import { uploadsPlugin } from './modules/uploads/index.js'
 
 export async function buildApp() {
   const app = Fastify({
@@ -69,6 +71,14 @@ export async function buildApp() {
     decode: { complete: false },
   })
 
+  // ─── BigInt serialisation ──────────────────────────────────────────────────
+  // Prisma stores all monetary values as BigInt (paise). JSON.stringify throws on
+  // BigInt, so we convert to Number before sending. Menu prices and bill totals
+  // for a restaurant fit safely within Number.MAX_SAFE_INTEGER.
+  app.addHook('preSerialization', (_request, _reply, payload, done) => {
+    done(null, convertBigInts(payload))
+  })
+
   // ─── Error handling ────────────────────────────────────────────────────────
   registerErrorHandler(app)
 
@@ -79,10 +89,25 @@ export async function buildApp() {
   await app.register(
     async (v1) => {
       await v1.register(authPlugin, { prefix: '/auth' })
+      await v1.register(menuPlugin, { prefix: '/menu' })
+      await v1.register(uploadsPlugin, { prefix: '/uploads' })
       v1.log.info('API v1 routes registered')
     },
     { prefix: '/api/v1' },
   )
 
   return app
+}
+
+function convertBigInts(value: unknown): unknown {
+  if (typeof value === 'bigint') return Number(value)
+  if (Array.isArray(value)) return value.map(convertBigInts)
+  if (value !== null && typeof value === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = convertBigInts(v)
+    }
+    return out
+  }
+  return value
 }

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import type { ZodType } from 'zod'
+import { z } from 'zod'
 import { ok, noContent } from '../../shared/response.js'
 import { ValidationError } from '../../shared/errors.js'
 import {
@@ -19,12 +19,12 @@ import {
   verifyOTP,
 } from './auth.service.js'
 
-function validate<T>(schema: ZodType<T>, data: unknown): T {
+function validate<S extends z.ZodTypeAny>(schema: S, data: unknown): z.output<S> {
   const result = schema.safeParse(data)
   if (!result.success) {
     throw new ValidationError('Invalid request body', result.error.errors)
   }
-  return result.data
+  return result.data as z.output<S>
 }
 
 const STRICT_RATE_LIMIT = { max: 10, timeWindow: '15 minutes' }
