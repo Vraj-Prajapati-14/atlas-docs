@@ -72,6 +72,7 @@ export interface JWTPayload {
   sub: string              // userId
   tenantId: string
   role: string
-  iat: number
-  exp: number
+  sessionId: string
+  iat?: number             // set by JWT library at sign time
+  exp?: number             // set by JWT library at sign time
 }

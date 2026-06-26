@@ -11,6 +11,7 @@ import jwt from '@fastify/jwt'
 import { config } from './config/index.js'
 import { registerErrorHandler } from './shared/middleware/error.js'
 import { healthRoutes } from './modules/health/index.js'
+import { authPlugin } from './modules/auth/index.js'
 
 export async function buildApp() {
   const app = Fastify({
@@ -74,10 +75,10 @@ export async function buildApp() {
   // ─── Routes ────────────────────────────────────────────────────────────────
   await app.register(healthRoutes, { prefix: '/api' })
 
-  // API v1 prefix — future modules register here
+  // ─── API v1 ────────────────────────────────────────────────────────────────
   await app.register(
     async (v1) => {
-      // Auth, menu, orders, billing, inventory modules register here in future sessions
+      await v1.register(authPlugin, { prefix: '/auth' })
       v1.log.info('API v1 routes registered')
     },
     { prefix: '/api/v1' },
