@@ -1,0 +1,15 @@
+# Atlas CODEOWNERS
+# These users must review PRs touching these paths.
+
+# Default: all PRs require repo owner review
+*                           @Vraj-Prajapati-014
+
+# Core billing engine — always requires owner review
+apps/api/src/modules/billing/   @Vraj-Prajapati-014
+packages/db/prisma/             @Vraj-Prajapati-014
+packages/utils/src/currency.ts  @Vraj-Prajapati-014
+packages/utils/src/gst.ts       @Vraj-Prajapati-014
+
+# CI/CD and security
+.github/                        @Vraj-Prajapati-014
+apps/api/Dockerfile             @Vraj-Prajapati-014
