@@ -14,6 +14,8 @@ import { healthRoutes } from './modules/health/index.js'
 import { authPlugin } from './modules/auth/index.js'
 import { menuPlugin } from './modules/menu/index.js'
 import { uploadsPlugin } from './modules/uploads/index.js'
+import { tablesPlugin } from './modules/tables/index.js'
+import { ordersPlugin } from './modules/orders/index.js'
 
 export async function buildApp() {
   const app = Fastify({
@@ -91,6 +93,8 @@ export async function buildApp() {
       await v1.register(authPlugin, { prefix: '/auth' })
       await v1.register(menuPlugin, { prefix: '/menu' })
       await v1.register(uploadsPlugin, { prefix: '/uploads' })
+      await v1.register(tablesPlugin, { prefix: '/tables' })
+      await v1.register(ordersPlugin, { prefix: '/orders' })
       v1.log.info('API v1 routes registered')
     },
     { prefix: '/api/v1' },
