@@ -219,6 +219,37 @@ export interface Bill {
   payments: Payment[]
 }
 
+// ─── Inventory ───────────────────────────────────────────────────────────────
+
+export type InventoryUnit = 'KG' | 'GRAM' | 'LITRE' | 'ML' | 'PIECE' | 'DOZEN' | 'BOX'
+export type StockAdjustmentType = 'ADD' | 'REMOVE' | 'SET'
+
+export interface InventoryItem {
+  id: string
+  name: string
+  sku: string | null
+  unit: InventoryUnit
+  currentStockInBaseUnit: number
+  lowStockThreshold: number | null
+  isLowStock: boolean
+  costPerUnitInPaise: number | null
+  category: string | null
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface StockAdjustment {
+  id: string
+  inventoryItemId: string
+  type: StockAdjustmentType
+  quantityInBaseUnit: number
+  previousStockInBaseUnit: number
+  newStockInBaseUnit: number
+  note: string | null
+  createdAt: string
+}
+
 // ─── Pagination ──────────────────────────────────────────────────────────────
 
 export interface PaginationMeta {
