@@ -1,7 +1,4 @@
-/**
- * Server entry point.
- * Builds the Fastify app and starts listening.
- */
+import 'dotenv/config'
 
 import { buildApp } from './app.js'
 import { config } from './config/index.js'
