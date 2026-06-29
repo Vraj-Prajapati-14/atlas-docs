@@ -3,12 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
-import type { KOT, PaginationMeta } from '@/lib/api-types'
-
-interface KOTsPage {
-  data: KOT[]
-  meta: { pagination: PaginationMeta }
-}
+import type { KOT } from '@/lib/api-types'
 
 const KEYS = {
   active: ['kots', 'active'] as const,
@@ -18,8 +13,7 @@ const KEYS = {
 export function useActiveKOTs() {
   return useQuery({
     queryKey: KEYS.active,
-    queryFn: () => apiClient.get<KOTsPage>('/api/v1/kots?active=true&limit=50'),
-    select: (res) => res.data,
+    queryFn: () => apiClient.get<KOT[]>('/api/v1/kots?active=true&limit=50'),
     refetchInterval: 10 * 1000,  // KDS polls every 10s
   })
 }

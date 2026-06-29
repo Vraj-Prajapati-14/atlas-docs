@@ -3,12 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
-import type { Bill, PaymentMethod, PaginationMeta } from '@/lib/api-types'
-
-interface BillsPage {
-  data: Bill[]
-  meta: { pagination: PaginationMeta }
-}
+import type { Bill, PaymentMethod } from '@/lib/api-types'
 
 const KEYS = {
   bills: (q?: Record<string, string>) => ['bills', q ?? {}] as const,
@@ -21,10 +16,10 @@ export function useBills(query?: { paymentStatus?: string; date?: string }) {
   if (query?.date) params.set('date', query.date)
   params.set('limit', '50')
 
+  // paginated() sends items[] directly in json.data; apiClient returns Bill[].
   return useQuery({
     queryKey: KEYS.bills(query as Record<string, string>),
-    queryFn: () => apiClient.get<BillsPage>(`/api/v1/bills?${params.toString()}`),
-    select: (res) => res,
+    queryFn: () => apiClient.get<Bill[]>(`/api/v1/bills?${params.toString()}`),
     refetchInterval: 30 * 1000,
   })
 }

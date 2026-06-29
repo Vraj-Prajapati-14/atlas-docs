@@ -4,15 +4,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
 import type {
-  InventoryItem, InventoryUnit, PaginationMeta,
+  InventoryItem, InventoryUnit,
   StockAdjustment, StockAdjustmentType,
   Supplier, PurchaseOrder, RecipeIngredient,
 } from '@/lib/api-types'
-
-interface InventoryPage {
-  data: InventoryItem[]
-  meta: { pagination: PaginationMeta }
-}
 
 const KEYS = {
   items: (q?: Record<string, string>) => ['inventory', q ?? {}] as const,
@@ -25,10 +20,10 @@ export function useInventoryItems(query?: { search?: string; lowStockOnly?: bool
   if (query?.lowStockOnly) params.set('lowStock', 'true')
   params.set('limit', '100')
 
+  // paginated() sends { success, data: items[], meta }; apiClient returns items[] directly.
   return useQuery({
     queryKey: KEYS.items(query as Record<string, string>),
-    queryFn: () => apiClient.get<InventoryPage>(`/api/v1/inventory?${params.toString()}`),
-    select: (res) => res.data,
+    queryFn: () => apiClient.get<InventoryItem[]>(`/api/v1/inventory?${params.toString()}`),
     refetchInterval: 30 * 1000,
   })
 }
@@ -91,8 +86,6 @@ export function useUpdateSupplier() {
 
 // ─── Purchase Orders ──────────────────────────────────────────────────────────
 
-interface POPage { data: PurchaseOrder[]; meta: { pagination: PaginationMeta } }
-
 export function usePurchaseOrders(query?: { supplierId?: string; status?: string; page?: number }) {
   const params = new URLSearchParams()
   if (query?.supplierId) params.set('supplierId', query.supplierId)
@@ -101,7 +94,7 @@ export function usePurchaseOrders(query?: { supplierId?: string; status?: string
   const qs = params.toString()
   return useQuery({
     queryKey: ['purchase-orders', query],
-    queryFn: () => apiClient.get<POPage>(`/api/v1/inventory/purchase-orders${qs ? `?${qs}` : ''}`),
+    queryFn: () => apiClient.get<PurchaseOrder[]>(`/api/v1/inventory/purchase-orders${qs ? `?${qs}` : ''}`),
   })
 }
 

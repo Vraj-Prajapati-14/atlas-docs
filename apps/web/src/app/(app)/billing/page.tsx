@@ -46,9 +46,9 @@ export default function BillingPage() {
   const { data: billedData }  = useOrders({ status: 'BILLED', limit: 50 })
   const { data: billsData }   = useBills()
 
-  const servedOrders  = ordersData?.data ?? []
-  const billedOrders  = billedData?.data ?? []
-  const bills         = billsData?.data ?? []
+  const servedOrders  = ordersData ?? []
+  const billedOrders  = billedData ?? []
+  const bills         = billsData ?? []
 
   const generateBill  = useGenerateBill()
 

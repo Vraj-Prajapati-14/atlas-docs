@@ -293,7 +293,7 @@ function OrdersTab() {
   const [receiving, setReceiving] = useState<PurchaseOrder | null>(null)
   const receive = useReceivePurchaseOrder()
 
-  const orders = data?.data ?? []
+  const orders = data ?? []
 
   return (
     <>
