@@ -250,6 +250,133 @@ export interface StockAdjustment {
   createdAt: string
 }
 
+// ─── Staff ────────────────────────────────────────────────────────────────────
+
+export type UserRole = 'OWNER' | 'MANAGER' | 'CASHIER' | 'WAITER' | 'CHEF' | 'INVENTORY_MANAGER'
+
+export interface StaffMember {
+  id: string
+  name: string
+  phone: string
+  email: string | null
+  role: UserRole
+  isActive: boolean
+  isOwner: boolean
+  lastLoginAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface StaffListResponse {
+  items: StaffMember[]
+  pagination: PaginationMeta
+}
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+
+export type RestaurantType =
+  | 'QSR' | 'CASUAL_DINING' | 'FINE_DINING' | 'CAFE'
+  | 'BAR' | 'FOOD_TRUCK' | 'CLOUD_KITCHEN' | 'BAKERY' | 'DHABA' | 'SWEET_SHOP'
+
+export interface TenantInfo {
+  id: string
+  name: string
+  slug: string
+  type: RestaurantType
+  plan: string
+  phone: string
+  email: string | null
+  website: string | null
+  gstin: string | null
+  fssaiLicense: string | null
+  panNumber: string | null
+  addressLine1: string
+  addressLine2: string | null
+  city: string
+  state: string
+  pincode: string
+  currency: string
+  timezone: string
+  createdAt: string
+}
+
+export interface TenantSettings {
+  id: string
+  tenantId: string
+  serviceChargePercent: number
+  serviceChargeOnTakeaway: boolean
+  roundOffBill: boolean
+  printKOTAutomatically: boolean
+  whatsappReceipts: boolean
+  nightlySummaryPhone: string | null
+  nightlySummaryTime: string
+  isInterState: boolean
+  kotPrinterIp: string | null
+  billPrinterIp: string | null
+  currencySymbol: string
+  updatedAt: string
+}
+
+export interface OutletInfo {
+  id: string
+  name: string
+  phone: string
+  addressLine1: string
+  addressLine2: string | null
+  city: string
+  state: string
+  pincode: string
+  isActive: boolean
+  createdAt: string
+}
+
+export interface SettingsResponse {
+  tenant: TenantInfo
+  settings: TenantSettings | null
+  outlet: OutletInfo | null
+}
+
+// ─── Aggregators ──────────────────────────────────────────────────────────────
+
+export type AggregatorPlatform = 'ZOMATO' | 'SWIGGY' | 'MAGICPIN' | 'EATSURE'
+export type AggregatorOrderStatus = 'NEW' | 'ACCEPTED' | 'DISPATCHED' | 'DELIVERED' | 'CANCELLED'
+
+export interface AggregatorCredential {
+  id: string
+  platform: AggregatorPlatform
+  outletId: string
+  restaurantId: string
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AggregatorOrderItem {
+  name: string
+  quantity: number
+  unitPriceInPaise: number
+}
+
+export interface AggregatorOrder {
+  id: string
+  platformOrderId: string
+  platform: AggregatorPlatform
+  status: AggregatorOrderStatus
+  customerName: string | null
+  customerPhone: string | null
+  deliveryAddress: string | null
+  items: AggregatorOrderItem[]
+  itemsTotalInPaise: number
+  deliveryFeeInPaise: number
+  platformFeeInPaise: number
+  grandTotalInPaise: number
+  acceptedAt: string | null
+  dispatchedAt: string | null
+  deliveredAt: string | null
+  cancelledAt: string | null
+  createdAt: string
+}
+
 // ─── Reports ─────────────────────────────────────────────────────────────────
 
 export interface DailyReport {
