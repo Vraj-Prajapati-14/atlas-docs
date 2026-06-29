@@ -250,6 +250,104 @@ export interface StockAdjustment {
   createdAt: string
 }
 
+// ─── Reports ─────────────────────────────────────────────────────────────────
+
+export interface DailyReport {
+  date: string
+  totalOrders: number
+  paidOrders: number
+  cancelledOrders: number
+  grossRevenueInPaise: number
+  discountInPaise: number
+  netRevenueInPaise: number
+  avgCheckInPaise: number
+  tax: {
+    cgstInPaise: number
+    sgstInPaise: number
+    igstInPaise: number
+    totalInPaise: number
+  }
+  paymentBreakdown: Record<string, number>
+  topItems: Array<{ name: string; qty: number; revenueInPaise: number }>
+}
+
+export interface ItemsReport {
+  from: string
+  to: string
+  items: Array<{
+    name: string
+    variantName: string | null
+    qty: number
+    revenueInPaise: number
+    gstRate: number
+  }>
+  totalItems: number
+}
+
+export interface PaymentsReport {
+  from: string
+  to: string
+  breakdown: Record<string, { count: number; totalInPaise: number }>
+  grandTotalInPaise: number
+  transactionCount: number
+}
+
+export interface GSTReport {
+  month: string
+  billCount: number
+  taxableValueInPaise: number
+  cgstInPaise: number
+  sgstInPaise: number
+  igstInPaise: number
+  totalGSTInPaise: number
+  grossRevenueInPaise: number
+}
+
+export interface InventoryValuationItem {
+  id: string
+  name: string
+  category: string | null
+  unit: string
+  currentStock: number
+  lowStockThreshold: number
+  pricePerUnitPaise: number
+  valueInPaise: number
+  isLowStock: boolean
+}
+
+export interface InventoryValuationReport {
+  items: InventoryValuationItem[]
+  totalItems: number
+  lowStockCount: number
+  totalValueInPaise: number
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+export type NotificationChannel = 'WHATSAPP' | 'SMS' | 'EMAIL' | 'PUSH'
+
+export interface Notification {
+  id: string
+  tenantId: string
+  userId: string | null
+  channel: NotificationChannel
+  type: string
+  title: string
+  body: string
+  sentAt: string | null
+  failedAt: string | null
+  error: string | null
+  createdAt: string
+}
+
+export interface NotificationsListResponse {
+  notifications: Notification[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
 // ─── Pagination ──────────────────────────────────────────────────────────────
 
 export interface PaginationMeta {
