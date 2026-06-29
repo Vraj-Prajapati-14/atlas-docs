@@ -18,9 +18,41 @@ class ApiError extends Error {
   }
 }
 
+// Prevents concurrent refresh calls — all pending requests share one refresh promise.
+let refreshPromise: Promise<boolean> | null = null
+
+async function tryRefresh(): Promise<boolean> {
+  if (refreshPromise) return refreshPromise
+  refreshPromise = (async () => {
+    try {
+      const refreshToken = localStorage.getItem('atlas_refresh')
+      if (!refreshToken) return false
+
+      const res = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+        credentials: 'include',
+      })
+      const json = (await res.json()) as ApiResponse<{ accessToken: string; refreshToken: string }>
+      if (!json.success) return false
+
+      localStorage.setItem('atlas_token', json.data.accessToken)
+      localStorage.setItem('atlas_refresh', json.data.refreshToken)
+      return true
+    } catch {
+      return false
+    } finally {
+      refreshPromise = null
+    }
+  })()
+  return refreshPromise
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
+  isRetry = false,
 ): Promise<T> {
   const url = `${API_BASE}${path}`
 
@@ -46,6 +78,18 @@ async function request<T>(
   const json = (await response.json()) as ApiResponse<T>
 
   if (!json.success) {
+    // On first 401, attempt a silent token refresh then retry once.
+    if (response.status === 401 && !isRetry) {
+      const refreshed = await tryRefresh()
+      if (refreshed) return request<T>(path, options, true)
+      // Refresh failed — clear auth and redirect to login.
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('atlas_token')
+        localStorage.removeItem('atlas_refresh')
+        document.cookie = 'atlas_auth=; path=/; max-age=0; SameSite=Lax'
+        window.location.href = '/login'
+      }
+    }
     throw new ApiError(json.error.code, json.error.message, response.status)
   }
 

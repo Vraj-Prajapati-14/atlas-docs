@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { Receipt, CreditCard, X, ChevronRight, Trash2, Printer } from 'lucide-react'
+import { Receipt, CreditCard, X, ChevronRight, Trash2, Printer, Star, Lock } from 'lucide-react'
 import { useOrders } from '@/hooks/use-orders'
-import { useBills, useBill, useGenerateBill, useRecordPayment, useVoidBill } from '@/hooks/use-billing'
+import { useBills, useBill, useGenerateBill, useRecordPayment, useVoidBill, useVerifyManagerPIN } from '@/hooks/use-billing'
+import { useSettings } from '@/hooks/use-settings'
 import { useAuthStore } from '@/lib/auth-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,7 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
-import type { Bill, PaymentMethod } from '@/lib/api-types'
+import type { Bill, Order, PaymentMethod } from '@/lib/api-types'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -40,11 +41,13 @@ export default function BillingPage() {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const [selectedBillId, setSelectedBillId] = useState<string | null>(null)
   const [tab, setTab] = useState<'to-bill' | 'bills'>('to-bill')
+  const [generateModalOrder, setGenerateModalOrder] = useState<Order | null>(null)
 
   // SERVED orders (ready to bill) + BILLED orders (already have a bill)
   const { data: ordersData } = useOrders({ status: 'SERVED', limit: 50 })
   const { data: billedData }  = useOrders({ status: 'BILLED', limit: 50 })
   const { data: billsData }   = useBills()
+  const { data: settingsData } = useSettings()
 
   const servedOrders  = ordersData ?? []
   const billedOrders  = billedData ?? []
@@ -52,17 +55,20 @@ export default function BillingPage() {
 
   const generateBill  = useGenerateBill()
 
-  const handleSelectOrder = async (orderId: string) => {
-    setSelectedOrderId(orderId)
+  const discountThreshold = settingsData?.settings?.discountApprovalThreshold ?? 0
+  const loyaltyEnabled    = settingsData?.settings?.loyaltyEnabled ?? false
+  const redemptionRate    = settingsData?.settings?.loyaltyRedemptionRate ?? 100
+
+  const handleSelectOrder = (order: Order) => {
+    setSelectedOrderId(order.id)
     setSelectedBillId(null)
     // Check if a bill already exists for this order in our bills list
-    const existing = bills.find((b) => b.orderId === orderId)
+    const existing = bills.find((b) => b.orderId === order.id)
     if (existing) {
       setSelectedBillId(existing.id)
     } else {
-      // Auto-generate bill
-      const bill = await generateBill.mutateAsync({ orderId })
-      setSelectedBillId(bill.id)
+      // Open modal to configure discount/loyalty before generating
+      setGenerateModalOrder(order)
     }
   }
 
@@ -99,7 +105,7 @@ export default function BillingPage() {
                     badge={<Badge variant="warning">Served</Badge>}
                     active={selectedOrderId === o.id}
                     loading={generateBill.isPending && selectedOrderId === o.id}
-                    onClick={() => handleSelectOrder(o.id)}
+                    onClick={() => handleSelectOrder(o)}
                   />
                 ))}
                 {billedOrders.map((o) => {
@@ -147,6 +153,23 @@ export default function BillingPage() {
           </div>
         )}
       </div>
+
+      {/* Generate bill modal — discount + loyalty before bill creation */}
+      {generateModalOrder && (
+        <GenerateBillModal
+          order={generateModalOrder}
+          discountThreshold={discountThreshold}
+          loyaltyEnabled={loyaltyEnabled}
+          redemptionRate={redemptionRate}
+          onClose={() => setGenerateModalOrder(null)}
+          onGenerate={async (payload) => {
+            const bill = await generateBill.mutateAsync({ orderId: generateModalOrder.id, ...payload })
+            setSelectedBillId(bill.id)
+            setGenerateModalOrder(null)
+          }}
+          isPending={generateBill.isPending}
+        />
+      )}
     </div>
   )
 }
@@ -319,6 +342,180 @@ function BillDetail({ billId }: { billId: string }) {
           </Button>
         )
       )}
+    </div>
+  )
+}
+
+// ─── Generate Bill Modal ──────────────────────────────────────────────────────
+
+interface GenerateBillPayload {
+  discountInPaise?: number
+  discountReasonCode?: string
+  loyaltyPointsRedeem?: number
+  customerName?: string
+  customerPhone?: string
+}
+
+function GenerateBillModal({
+  order,
+  discountThreshold,
+  loyaltyEnabled,
+  redemptionRate,
+  onClose,
+  onGenerate,
+  isPending,
+}: {
+  order: Order
+  discountThreshold: number
+  loyaltyEnabled: boolean
+  redemptionRate: number
+  onClose: () => void
+  onGenerate: (payload: GenerateBillPayload) => Promise<void>
+  isPending: boolean
+}) {
+  const [discountRupees, setDiscountRupees] = useState('')
+  const [discountReason, setDiscountReason] = useState('')
+  const [loyaltyRedeem, setLoyaltyRedeem] = useState('')
+  const [pinEntry, setPinEntry] = useState('')
+  const [pinVerified, setPinVerified] = useState(false)
+  const [pinError, setPinError] = useState('')
+  const [verifyingPin, setVerifyingPin] = useState(false)
+  const verifyPIN = useVerifyManagerPIN()
+
+  const subtotal       = order.subtotalInPaise
+  const loyaltyBalance = order.customer?.loyaltyPointsBalance ?? 0
+  const discountPaise  = Math.round((parseFloat(discountRupees) || 0) * 100)
+  const discountPct    = subtotal > 0 ? (discountPaise / subtotal) * 100 : 0
+  const loyaltyPoints  = Math.min(parseInt(loyaltyRedeem) || 0, loyaltyBalance)
+  const loyaltyDiscount = Math.floor((loyaltyPoints / redemptionRate) * 100)
+
+  const needsApproval  = discountThreshold > 0 && discountPct > discountThreshold && !pinVerified
+
+  async function handleVerifyPIN() {
+    if (pinEntry.length !== 4) return
+    setVerifyingPin(true)
+    setPinError('')
+    try {
+      const res = await verifyPIN.mutateAsync(pinEntry)
+      if (res.valid) {
+        setPinVerified(true)
+        setPinEntry('')
+      } else {
+        setPinError('Invalid PIN. Ask a manager or owner.')
+      }
+    } finally {
+      setVerifyingPin(false)
+    }
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (needsApproval) return
+    onGenerate({
+      discountInPaise: discountPaise > 0 ? discountPaise : undefined,
+      discountReasonCode: discountReason || undefined,
+      loyaltyPointsRedeem: loyaltyPoints > 0 ? loyaltyPoints : undefined,
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <form onSubmit={handleSubmit} className="bg-background-card border border-border rounded-xl w-full max-w-sm shadow-2xl space-y-4 p-5">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-bold">Generate Bill</p>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="rounded-lg bg-background px-4 py-2.5">
+          <p className="text-xs text-muted-foreground">
+            {order.table?.name ?? `Order #${order.orderNumber}`}
+            {order.customer ? ` · ${order.customer.name}` : ''}
+          </p>
+          <p className="text-sm font-bold text-foreground mt-0.5">{paise(subtotal)} (est. subtotal)</p>
+        </div>
+
+        {/* Discount */}
+        <div className="space-y-1.5">
+          <Label>Discount (₹) {discountThreshold > 0 && <span className="text-[10px] text-muted-foreground ml-1">PIN required above {discountThreshold}%</span>}</Label>
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            max={(subtotal / 100).toFixed(2)}
+            placeholder="0.00"
+            value={discountRupees}
+            onChange={(e) => { setDiscountRupees(e.target.value); setPinVerified(false) }}
+          />
+          {discountPaise > 0 && (
+            <Input
+              type="text"
+              placeholder="Discount reason (optional)"
+              value={discountReason}
+              onChange={(e) => setDiscountReason(e.target.value)}
+            />
+          )}
+        </div>
+
+        {/* Manager PIN gate */}
+        {discountPct > discountThreshold && discountThreshold > 0 && !pinVerified && (
+          <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 space-y-2">
+            <p className="text-xs font-semibold text-warning flex items-center gap-1.5">
+              <Lock size={12} /> Manager approval required ({discountPct.toFixed(1)}% discount)
+            </p>
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                placeholder="4-digit PIN"
+                value={pinEntry}
+                onChange={(e) => { setPinEntry(e.target.value.replace(/\D/g, '')); setPinError('') }}
+                className="flex-1 font-mono tracking-widest"
+              />
+              <Button type="button" size="sm" disabled={pinEntry.length !== 4 || verifyingPin} onClick={handleVerifyPIN}>
+                {verifyingPin ? <Spinner size="xs" /> : 'Verify'}
+              </Button>
+            </div>
+            {pinError && <p className="text-[11px] text-danger">{pinError}</p>}
+          </div>
+        )}
+        {pinVerified && (
+          <p className="text-xs text-success flex items-center gap-1"><span>✓</span> Manager approved</p>
+        )}
+
+        {/* Loyalty redeem */}
+        {loyaltyEnabled && loyaltyBalance > 0 && (
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5">
+              <Star size={11} className="text-warning fill-warning" />
+              Redeem Loyalty Points
+              <span className="text-[10px] text-muted-foreground font-normal ml-1">({loyaltyBalance} available)</span>
+            </Label>
+            <Input
+              type="number"
+              min="0"
+              max={loyaltyBalance}
+              placeholder="0"
+              value={loyaltyRedeem}
+              onChange={(e) => setLoyaltyRedeem(e.target.value)}
+            />
+            {loyaltyPoints > 0 && (
+              <p className="text-[11px] text-success">
+                Redeem {loyaltyPoints} pts = {paise(loyaltyDiscount)} discount
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-1">
+          <Button type="button" variant="ghost" className="flex-1" onClick={onClose}>Cancel</Button>
+          <Button type="submit" className="flex-1" disabled={isPending || needsApproval}>
+            {isPending ? <Spinner size="sm" /> : 'Generate Bill'}
+          </Button>
+        </div>
+      </form>
     </div>
   )
 }

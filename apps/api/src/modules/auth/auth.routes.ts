@@ -25,6 +25,7 @@ import {
   updateMe,
   changePassword,
   setMyPIN,
+  verifyManagerPIN,
 } from './auth.service.js'
 
 function validate<S extends z.ZodTypeAny>(schema: S, data: unknown): z.output<S> {
@@ -101,5 +102,11 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const body = validate(SetPINBody, request.body)
     await setMyPIN(request.user.sub, body)
     return ok(reply, { message: 'PIN updated successfully.' })
+  })
+
+  // ─── Verify manager/owner PIN (discount approval gate) ──────────────────────
+  app.post('/verify-manager-pin', { preHandler: [authenticate] }, async (request, reply) => {
+    const { pin } = validate(z.object({ pin: z.string().length(4).regex(/^\d{4}$/) }), request.body)
+    return ok(reply, await verifyManagerPIN(request.user.tenantId, pin))
   })
 }

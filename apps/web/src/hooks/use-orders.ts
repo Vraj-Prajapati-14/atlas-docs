@@ -176,3 +176,20 @@ export function useCancelOrder() {
     },
   })
 }
+
+export function useTransferOrder() {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ orderId, toTableId }: { orderId: string; toTableId: string }) =>
+      apiClient.post<Order>(`/api/v1/orders/${orderId}/transfer`, { toTableId }),
+    onSuccess(order) {
+      qc.invalidateQueries({ queryKey: ['orders'] })
+      qc.invalidateQueries({ queryKey: ['tables'] })
+      toast.success(`Order moved to table ${order.table?.name ?? ''}.`)
+    },
+    onError(err: Error) {
+      toast.error(err.message ?? 'Transfer failed.')
+    },
+  })
+}

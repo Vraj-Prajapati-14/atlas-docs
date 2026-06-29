@@ -27,6 +27,7 @@ import {
   updateFloor,
   updateTable,
   updateTableStatus,
+  refreshTableQR,
 } from './tables.service.js'
 
 function validate<S extends z.ZodTypeAny>(schema: S, data: unknown): z.output<S> {
@@ -105,6 +106,14 @@ export async function tablesRoutes(app: FastifyInstance): Promise<void> {
     const { id } = validate(TableIdParam, request.params)
     const body = validate(UpdateTableStatusBody, request.body)
     const table = await updateTableStatus(request.user.tenantId, id, body.status)
+    return ok(reply, table)
+  })
+
+  // ─── Refresh / regenerate QR code for a table ───────────────────────────────
+
+  app.post('/:id/qr', { preHandler: WRITE_GUARD }, async (request, reply) => {
+    const { id } = validate(TableIdParam, request.params)
+    const table = await refreshTableQR(request.user.tenantId, id)
     return ok(reply, table)
   })
 }

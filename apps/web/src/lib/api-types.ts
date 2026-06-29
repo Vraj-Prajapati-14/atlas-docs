@@ -11,19 +11,32 @@ export type { AuthUser } from './auth-store'
 // ─── Customer ────────────────────────────────────────────────────────────────
 
 export interface Customer {
-  id:             string
-  tenantId:       string
-  name:           string
-  phone:          string
-  email:          string | null
-  gstin:          string | null
-  companyName:    string | null
-  address:        string | null
-  totalVisits:    number
-  totalSpentPaise: number
-  lastVisitAt:    string | null
-  createdAt:      string
-  updatedAt:      string
+  id:                   string
+  tenantId:             string
+  name:                 string
+  phone:                string
+  email:                string | null
+  gstin:                string | null
+  companyName:          string | null
+  address:              string | null
+  totalVisits:          number
+  totalSpentPaise:      number
+  lastVisitAt:          string | null
+  loyaltyPointsBalance: number
+  createdAt:            string
+  updatedAt:            string
+}
+
+export type LoyaltyLedgerType = 'EARN' | 'REDEEM' | 'ADJUSTMENT'
+
+export interface LoyaltyLedgerEntry {
+  id:          string
+  customerId:  string
+  points:      number
+  type:        LoyaltyLedgerType
+  referenceId: string | null
+  note:        string | null
+  createdAt:   string
 }
 
 export interface CustomerOrder {
@@ -152,6 +165,7 @@ export interface Order {
   status: OrderStatus
   tableId: string | null
   table: { id: string; name: string } | null
+  customer: { id: string; name: string; phone: string; email: string | null; loyaltyPointsBalance: number } | null
   guestCount: number | null
   note: string | null
   subtotalInPaise: number
@@ -354,7 +368,26 @@ export interface TenantSettings {
   kotPrinterIp: string | null
   billPrinterIp: string | null
   currencySymbol: string
+  discountApprovalThreshold: number
+  loyaltyEnabled: boolean
+  loyaltyPointsPerRupee: number
+  loyaltyRedemptionRate: number
   updatedAt: string
+}
+
+// ─── Public / QR Self-Ordering ───────────────────────────────────────────────
+
+export interface PublicMenuResponse {
+  table: {
+    id: string
+    name: string
+    capacity: number
+    status: TableStatus
+    floor: { id: string; name: string } | null
+    outlet: { id: string; name: string }
+  }
+  categories: Array<{ id: string; name: string; description: string | null; sortOrder: number }>
+  items: MenuItem[]
 }
 
 export interface OutletInfo {

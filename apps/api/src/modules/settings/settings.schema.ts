@@ -1,16 +1,20 @@
 import { z } from 'zod'
 
 export const UpdateSettingsBody = z.object({
-  serviceChargePercent:    z.number().int().min(0).max(100).optional(),
-  serviceChargeOnTakeaway: z.boolean().optional(),
-  roundOffBill:            z.boolean().optional(),
-  printKOTAutomatically:   z.boolean().optional(),
-  whatsappReceipts:        z.boolean().optional(),
-  nightlySummaryPhone:     z.string().regex(/^[6-9]\d{9}$/).nullable().optional(),
-  nightlySummaryTime:      z.string().regex(/^\d{2}:\d{2}$/).optional(),
-  isInterState:            z.boolean().optional(),
-  kotPrinterIp:            z.string().ip().nullable().optional(),
-  billPrinterIp:           z.string().ip().nullable().optional(),
+  serviceChargePercent:       z.number().int().min(0).max(100).optional(),
+  serviceChargeOnTakeaway:    z.boolean().optional(),
+  roundOffBill:               z.boolean().optional(),
+  printKOTAutomatically:      z.boolean().optional(),
+  whatsappReceipts:           z.boolean().optional(),
+  nightlySummaryPhone:        z.string().regex(/^[6-9]\d{9}$/).nullable().optional(),
+  nightlySummaryTime:         z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  isInterState:               z.boolean().optional(),
+  kotPrinterIp:               z.string().ip().nullable().optional(),
+  billPrinterIp:              z.string().ip().nullable().optional(),
+  discountApprovalThreshold:  z.number().int().min(0).max(100).optional(),
+  loyaltyEnabled:             z.boolean().optional(),
+  loyaltyPointsPerRupee:      z.number().int().min(1).max(100).optional(),
+  loyaltyRedemptionRate:      z.number().int().min(1).max(10000).optional(),
 })
 
 export const UpdateOutletBody = z.object({

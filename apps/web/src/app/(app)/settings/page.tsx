@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Settings, Building2, Sliders, Save } from 'lucide-react'
+import { Settings, Building2, Sliders, Save, Star, Lock } from 'lucide-react'
 import { useSettings, useUpdateSettings, useUpdateOutlet, useUpdateTenant } from '@/hooks/use-settings'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -208,31 +208,39 @@ function OutletSection({ outlet, disabled }: { outlet: OutletInfo; disabled: boo
 function POSSection({ settings, disabled }: { settings: TenantSettings | null; disabled: boolean }) {
   const update = useUpdateSettings()
   const [s, setS] = useState({
-    serviceChargePercent:    settings?.serviceChargePercent    ?? 0,
-    serviceChargeOnTakeaway: settings?.serviceChargeOnTakeaway ?? false,
-    roundOffBill:            settings?.roundOffBill            ?? true,
-    printKOTAutomatically:   settings?.printKOTAutomatically   ?? true,
-    whatsappReceipts:        settings?.whatsappReceipts        ?? false,
-    isInterState:            settings?.isInterState            ?? false,
-    nightlySummaryPhone:     settings?.nightlySummaryPhone     ?? '',
-    nightlySummaryTime:      settings?.nightlySummaryTime      ?? '23:30',
-    kotPrinterIp:            settings?.kotPrinterIp            ?? '',
-    billPrinterIp:           settings?.billPrinterIp           ?? '',
+    serviceChargePercent:       settings?.serviceChargePercent       ?? 0,
+    serviceChargeOnTakeaway:    settings?.serviceChargeOnTakeaway    ?? false,
+    roundOffBill:               settings?.roundOffBill               ?? true,
+    printKOTAutomatically:      settings?.printKOTAutomatically      ?? true,
+    whatsappReceipts:           settings?.whatsappReceipts           ?? false,
+    isInterState:               settings?.isInterState               ?? false,
+    nightlySummaryPhone:        settings?.nightlySummaryPhone        ?? '',
+    nightlySummaryTime:         settings?.nightlySummaryTime         ?? '23:30',
+    kotPrinterIp:               settings?.kotPrinterIp               ?? '',
+    billPrinterIp:              settings?.billPrinterIp              ?? '',
+    discountApprovalThreshold:  settings?.discountApprovalThreshold  ?? 0,
+    loyaltyEnabled:             settings?.loyaltyEnabled             ?? false,
+    loyaltyPointsPerRupee:      settings?.loyaltyPointsPerRupee      ?? 1,
+    loyaltyRedemptionRate:      settings?.loyaltyRedemptionRate      ?? 100,
   })
 
   useEffect(() => {
     if (!settings) return
     setS({
-      serviceChargePercent:    settings.serviceChargePercent,
-      serviceChargeOnTakeaway: settings.serviceChargeOnTakeaway,
-      roundOffBill:            settings.roundOffBill,
-      printKOTAutomatically:   settings.printKOTAutomatically,
-      whatsappReceipts:        settings.whatsappReceipts,
-      isInterState:            settings.isInterState,
-      nightlySummaryPhone:     settings.nightlySummaryPhone ?? '',
-      nightlySummaryTime:      settings.nightlySummaryTime,
-      kotPrinterIp:            settings.kotPrinterIp ?? '',
-      billPrinterIp:           settings.billPrinterIp ?? '',
+      serviceChargePercent:       settings.serviceChargePercent,
+      serviceChargeOnTakeaway:    settings.serviceChargeOnTakeaway,
+      roundOffBill:               settings.roundOffBill,
+      printKOTAutomatically:      settings.printKOTAutomatically,
+      whatsappReceipts:           settings.whatsappReceipts,
+      isInterState:               settings.isInterState,
+      nightlySummaryPhone:        settings.nightlySummaryPhone ?? '',
+      nightlySummaryTime:         settings.nightlySummaryTime,
+      kotPrinterIp:               settings.kotPrinterIp ?? '',
+      billPrinterIp:              settings.billPrinterIp ?? '',
+      discountApprovalThreshold:  settings.discountApprovalThreshold,
+      loyaltyEnabled:             settings.loyaltyEnabled,
+      loyaltyPointsPerRupee:      settings.loyaltyPointsPerRupee,
+      loyaltyRedemptionRate:      settings.loyaltyRedemptionRate,
     })
   }, [settings])
 
@@ -246,16 +254,20 @@ function POSSection({ settings, disabled }: { settings: TenantSettings | null; d
 
   function handleSave() {
     update.mutate({
-      serviceChargePercent:    s.serviceChargePercent,
-      serviceChargeOnTakeaway: s.serviceChargeOnTakeaway,
-      roundOffBill:            s.roundOffBill,
-      printKOTAutomatically:   s.printKOTAutomatically,
-      whatsappReceipts:        s.whatsappReceipts,
-      isInterState:            s.isInterState,
-      nightlySummaryPhone:     s.nightlySummaryPhone || null,
-      nightlySummaryTime:      s.nightlySummaryTime,
-      kotPrinterIp:            s.kotPrinterIp || null,
-      billPrinterIp:           s.billPrinterIp || null,
+      serviceChargePercent:       s.serviceChargePercent,
+      serviceChargeOnTakeaway:    s.serviceChargeOnTakeaway,
+      roundOffBill:               s.roundOffBill,
+      printKOTAutomatically:      s.printKOTAutomatically,
+      whatsappReceipts:           s.whatsappReceipts,
+      isInterState:               s.isInterState,
+      nightlySummaryPhone:        s.nightlySummaryPhone || null,
+      nightlySummaryTime:         s.nightlySummaryTime,
+      kotPrinterIp:               s.kotPrinterIp || null,
+      billPrinterIp:              s.billPrinterIp || null,
+      discountApprovalThreshold:  s.discountApprovalThreshold,
+      loyaltyEnabled:             s.loyaltyEnabled,
+      loyaltyPointsPerRupee:      s.loyaltyPointsPerRupee,
+      loyaltyRedemptionRate:      s.loyaltyRedemptionRate,
     })
   }
 
@@ -306,6 +318,48 @@ function POSSection({ settings, disabled }: { settings: TenantSettings | null; d
             onChange={e => setS(v => ({ ...v, billPrinterIp: e.target.value }))}
             disabled={disabled} placeholder="192.168.1.101" className={fieldCls} />
         </Field>
+      </div>
+
+      {/* ─── Discount Approval ─── */}
+      <div className="pt-4 border-t border-border space-y-3">
+        <div className="flex items-center gap-2">
+          <Lock size={13} className="text-muted-foreground" />
+          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Discount Approval</span>
+        </div>
+        <Field label="Discount Approval Threshold %" hint="Discounts above this % require manager PIN. Set 0 to disable.">
+          <input type="number" min={0} max={100} value={s.discountApprovalThreshold}
+            onChange={e => setS(v => ({ ...v, discountApprovalThreshold: Number(e.target.value) }))}
+            disabled={disabled} className={cn(fieldCls, 'max-w-[120px]')} />
+        </Field>
+      </div>
+
+      {/* ─── Loyalty Program ─── */}
+      <div className="pt-4 border-t border-border space-y-3">
+        <div className="flex items-center gap-2">
+          <Star size={13} className="text-warning fill-warning" />
+          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Loyalty Program</span>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-foreground">Enable Loyalty Points</p>
+            <p className="text-[11px] text-muted-foreground">Customers earn points on every paid bill</p>
+          </div>
+          <Toggle checked={s.loyaltyEnabled} onChange={v => setS(prev => ({ ...prev, loyaltyEnabled: v }))} disabled={disabled} />
+        </div>
+        {s.loyaltyEnabled && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            <Field label="Points per ₹1 spent" hint="e.g. 1 = earn 1 point per rupee">
+              <input type="number" min={1} max={100} value={s.loyaltyPointsPerRupee}
+                onChange={e => setS(v => ({ ...v, loyaltyPointsPerRupee: Number(e.target.value) }))}
+                disabled={disabled} className={cn(fieldCls, 'max-w-[120px]')} />
+            </Field>
+            <Field label="Points needed per ₹1 discount" hint="e.g. 100 = 100 pts = ₹1 off">
+              <input type="number" min={1} max={10000} value={s.loyaltyRedemptionRate}
+                onChange={e => setS(v => ({ ...v, loyaltyRedemptionRate: Number(e.target.value) }))}
+                disabled={disabled} className={cn(fieldCls, 'max-w-[120px]')} />
+            </Field>
+          </div>
+        )}
       </div>
 
       {!disabled && (

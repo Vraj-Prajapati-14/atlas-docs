@@ -400,6 +400,27 @@ export async function setMyPIN(userId: string, input: SetPINInput): Promise<void
   await prisma.user.update({ where: { id: userId }, data: { pin } })
 }
 
+// Verify any active OWNER or MANAGER PIN — used for discount approval flow
+export async function verifyManagerPIN(tenantId: string, pin: string): Promise<{ valid: boolean }> {
+  const managers = await prisma.user.findMany({
+    where: {
+      tenantId,
+      role: { in: ['OWNER', 'MANAGER'] },
+      isActive: true,
+      pin: { not: null },
+      deletedAt: null,
+    },
+    select: { pin: true },
+  })
+
+  for (const manager of managers) {
+    if (manager.pin && await bcrypt.compare(pin, manager.pin)) {
+      return { valid: true }
+    }
+  }
+  return { valid: false }
+}
+
 export async function sendOTP(input: SendOTPInput): Promise<{ message: string }> {
   // Always return same message to avoid user enumeration
   const userExists = await prisma.user.findFirst({

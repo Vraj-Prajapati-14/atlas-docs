@@ -447,16 +447,36 @@ model Customer {
   totalVisits   Int      @default(0)
   totalSpentPaise BigInt @default(0)
   lastVisitAt   DateTime?
+  loyaltyPointsBalance Int @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  orders Order[]
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orders        Order[]
+  loyaltyLedger LoyaltyLedger[]
 
   @@unique([tenantId, phone])
   @@index([tenantId])
   @@index([phone])
   @@map("customers")
+}
+
+model LoyaltyLedger {
+  id          String   @id @default(cuid())
+  tenantId    String
+  customerId  String
+  points      Int      // positive = earn, negative = redeem
+  type        String   // "EARN" | "REDEEM" | "ADJUSTMENT"
+  referenceId String?  // billId
+  note        String?
+  createdAt   DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([createdAt])
+  @@map("loyalty_ledger")
 }
 
 // ─────────────────────────────────────────────
@@ -472,18 +492,18 @@ model Order {
   status      OrderStatus @default(DRAFT)
   tableId     String?
   customerId  String?
-  staffId     String
+  staffId     String?
   guestCount  Int?
   note        String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   closedAt    DateTime?
 
-  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  outlet   Outlet   @relation(fields: [outletId], references: [id])
-  table    Table?   @relation(fields: [tableId], references: [id])
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  outlet   Outlet    @relation(fields: [outletId], references: [id])
+  table    Table?    @relation(fields: [tableId], references: [id])
   customer Customer? @relation(fields: [customerId], references: [id])
-  staff    User     @relation("OrderStaff", fields: [staffId], references: [id])
+  staff    User?     @relation("OrderStaff", fields: [staffId], references: [id])
   items    OrderItem[]
   kots     KOT[]
   bill     Bill?
@@ -917,20 +937,26 @@ model AuditLog {
 // ─────────────────────────────────────────────
 
 model TenantSettings {
-  id                     String   @id @default(cuid())
-  tenantId               String   @unique
-  serviceChargePercent   Int      @default(0)
-  serviceChargeOnTakeaway Boolean @default(false)
-  roundOffBill           Boolean  @default(true)
-  printKOTAutomatically  Boolean  @default(true)
-  whatsappReceipts       Boolean  @default(true)
-  nightlySummaryPhone    String?
-  nightlySummaryTime     String   @default("23:30")
-  isInterState           Boolean  @default(false) // CGST+SGST vs IGST
-  kotPrinterIp           String?
-  billPrinterIp          String?
-  currencySymbol         String   @default("₹")
-  updatedAt              DateTime @updatedAt
+  id                          String   @id @default(cuid())
+  tenantId                    String   @unique
+  serviceChargePercent        Int      @default(0)
+  serviceChargeOnTakeaway     Boolean  @default(false)
+  roundOffBill                Boolean  @default(true)
+  printKOTAutomatically       Boolean  @default(true)
+  whatsappReceipts            Boolean  @default(true)
+  nightlySummaryPhone         String?
+  nightlySummaryTime          String   @default("23:30")
+  isInterState                Boolean  @default(false)
+  kotPrinterIp                String?
+  billPrinterIp               String?
+  currencySymbol              String   @default("₹")
+  // Discount approval
+  discountApprovalThreshold   Int      @default(0)   // percentage; 0 = disabled
+  // Loyalty
+  loyaltyEnabled              Boolean  @default(false)
+  loyaltyPointsPerRupee       Int      @default(1)   // points earned per ₹1 spent
+  loyaltyRedemptionRate       Int      @default(100) // points needed per ₹1 of discount
+  updatedAt                   DateTime @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 

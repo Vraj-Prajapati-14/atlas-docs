@@ -35,8 +35,15 @@ export function useBill(id: string | undefined) {
 export function useGenerateBill() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (payload: { orderId: string; discountInPaise?: number; customerName?: string; customerPhone?: string }) =>
-      apiClient.post<Bill>('/api/v1/bills', payload),
+    mutationFn: (payload: {
+      orderId: string
+      discountInPaise?: number
+      discountReasonCode?: string
+      loyaltyPointsRedeem?: number
+      customerName?: string
+      customerPhone?: string
+      customerGSTIN?: string
+    }) => apiClient.post<Bill>('/api/v1/bills', payload),
     onSuccess(bill) {
       qc.setQueryData(KEYS.bill(bill.id), bill)
       qc.invalidateQueries({ queryKey: ['bills'] })
@@ -46,6 +53,13 @@ export function useGenerateBill() {
     onError(err: Error) {
       toast.error(err.message)
     },
+  })
+}
+
+export function useVerifyManagerPIN() {
+  return useMutation({
+    mutationFn: (pin: string) =>
+      apiClient.post<{ valid: boolean }>('/api/v1/auth/verify-manager-pin', { pin }),
   })
 }
 

@@ -160,6 +160,18 @@ export async function updateTableStatus(tenantId: string, id: string, status: Ta
   return prisma.table.update({ where: { id }, data: { status } })
 }
 
+export async function refreshTableQR(tenantId: string, id: string) {
+  const table = await prisma.table.findFirst({ where: { id, tenantId, deletedAt: null } })
+  if (!table) throw new NotFoundError('Table', id)
+
+  const qrCode = `${tenantId}:${table.outletId}:${crypto.randomUUID()}`
+  return prisma.table.update({
+    where: { id },
+    data: { qrCode },
+    include: { floor: { select: { id: true, name: true } } },
+  })
+}
+
 // ─── Internal ────────────────────────────────────────────────────────────────
 
 function isPrismaUniqueError(err: unknown): boolean {
