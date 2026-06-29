@@ -16,19 +16,22 @@
     "@atlas/types": "workspace:*",
     "@atlas/utils": "workspace:*",
     "@tanstack/react-query": "^5.56.2",
-    "expo": "~51.0.28",
-    "expo-router": "~3.5.23",
-    "expo-secure-store": "~13.0.2",
-    "react": "18.2.0",
-    "react-native": "0.74.5",
+    "expo": "~54.0.35",
+    "expo-constants": "~18.0.13",
+    "expo-linking": "~8.0.12",
+    "expo-router": "~6.0.24",
+    "expo-secure-store": "~15.0.8",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-screens": "~4.16.0",
     "zustand": "^5.0.0"
   },
   "devDependencies": {
+    "@types/react": "^19.1.17",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
-    "@types/react": "^18.3.5",
-    "@types/react-native": "^0.73.0",
-    "typescript": "^5.5.4",
-    "rimraf": "^5.0.10"
+    "rimraf": "^5.0.10",
+    "typescript": "^5.5.4"
   }
 }

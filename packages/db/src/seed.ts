@@ -4,13 +4,13 @@
  */
 
 import { PrismaClient, RestaurantType, UserRole, FoodType, InventoryUnit } from '@prisma/client'
-import { createHash } from 'node:crypto'
+import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
-// Minimal bcrypt stub for seed — real password hashing is in the API module
-function hashPin(pin: string): string {
-  return createHash('sha256').update(`seed:${pin}`).digest('hex')
+// Hash PINs with bcrypt so the API's bcrypt.compare() can verify them at login
+async function hashPin(pin: string): Promise<string> {
+  return bcrypt.hash(pin, 10)
 }
 
 async function main(): Promise<void> {
@@ -88,7 +88,7 @@ async function main(): Promise<void> {
   // Staff
   const owner = await prisma.user.upsert({
     where: { id: 'user-demo-owner' },
-    update: {},
+    update: { pin: await hashPin('1234') },
     create: {
       id: 'user-demo-owner',
       tenantId: tenant.id,
@@ -97,46 +97,46 @@ async function main(): Promise<void> {
       email: 'owner@demokitchen.in',
       role: UserRole.OWNER,
       isOwner: true,
-      pin: hashPin('1234'),
+      pin: await hashPin('1234'),
     },
   })
 
   await prisma.user.upsert({
     where: { id: 'user-demo-manager' },
-    update: {},
+    update: { pin: await hashPin('2345') },
     create: {
       id: 'user-demo-manager',
       tenantId: tenant.id,
       name: 'Rahul Verma',
       phone: '9876543211',
       role: UserRole.MANAGER,
-      pin: hashPin('2345'),
+      pin: await hashPin('2345'),
     },
   })
 
   await prisma.user.upsert({
     where: { id: 'user-demo-cashier' },
-    update: {},
+    update: { pin: await hashPin('3456') },
     create: {
       id: 'user-demo-cashier',
       tenantId: tenant.id,
       name: 'Amit Kumar',
       phone: '9876543212',
       role: UserRole.CASHIER,
-      pin: hashPin('3456'),
+      pin: await hashPin('3456'),
     },
   })
 
   await prisma.user.upsert({
     where: { id: 'user-demo-chef' },
-    update: {},
+    update: { pin: await hashPin('4567') },
     create: {
       id: 'user-demo-chef',
       tenantId: tenant.id,
       name: 'Suresh Babu',
       phone: '9876543213',
       role: UserRole.CHEF,
-      pin: hashPin('4567'),
+      pin: await hashPin('4567'),
     },
   })
 

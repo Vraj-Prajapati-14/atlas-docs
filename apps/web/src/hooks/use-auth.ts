@@ -16,6 +16,8 @@ interface LoginPINPayload {
   pin: string
 }
 
+const TENANT_ID = process.env['NEXT_PUBLIC_TENANT_ID'] ?? ''
+
 interface LoginResponse {
   user: AuthUser
   accessToken: string
@@ -29,7 +31,10 @@ export function useLoginEmail() {
 
   return useMutation({
     mutationFn: (payload: LoginEmailPayload) =>
-      apiClient.post<LoginResponse>('/api/v1/auth/login/email', payload),
+      apiClient.post<LoginResponse>('/api/v1/auth/login/email', {
+        ...payload,
+        tenantId: TENANT_ID,
+      }),
     onSuccess(data) {
       setAuth(data.user, data.accessToken, data.refreshToken)
       toast.success(`Welcome back, ${data.user.name.split(' ')[0]}!`)
@@ -47,7 +52,10 @@ export function useLoginPIN() {
 
   return useMutation({
     mutationFn: (payload: LoginPINPayload) =>
-      apiClient.post<LoginResponse>('/api/v1/auth/login/pin', payload),
+      apiClient.post<LoginResponse>('/api/v1/auth/login/pin', {
+        ...payload,
+        tenantId: TENANT_ID,
+      }),
     onSuccess(data) {
       setAuth(data.user, data.accessToken, data.refreshToken)
       toast.success(`Welcome, ${data.user.name.split(' ')[0]}!`)

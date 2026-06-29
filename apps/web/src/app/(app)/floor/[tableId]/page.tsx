@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Search, ShoppingCart, Trash2, Plus, Minus, Send } from 'lucide-react'
 import { useTable } from '@/hooks/use-tables'
@@ -29,8 +29,8 @@ const DEFAULT_OUTLET_ID = 'default'
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function POSPage({ params }: { params: Promise<{ tableId: string }> }) {
-  const { tableId } = use(params)
+export default function POSPage({ params }: { params: { tableId: string } }) {
+  const { tableId } = params
   const router = useRouter()
 
   const { data: table, isLoading: tableLoading } = useTable(tableId)

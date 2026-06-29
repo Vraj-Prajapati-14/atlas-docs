@@ -93,6 +93,16 @@ export async function buildApp() {
   // ─── Routes ────────────────────────────────────────────────────────────────
   await app.register(healthRoutes, { prefix: '/api' })
 
+  // Root route
+  app.get('/', async (_request, reply) => {
+    return {
+      success: true,
+      message: 'Atlas API is running',
+      version: process.env['npm_package_version'] ?? '0.0.1',
+      health: '/api/health',
+    }
+  })
+
   // ─── API v1 ────────────────────────────────────────────────────────────────
   await app.register(
     async (v1) => {
