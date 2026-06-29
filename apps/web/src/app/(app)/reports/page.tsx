@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { BarChart3, TrendingUp, ShoppingBag, Receipt, Package, RefreshCw } from 'lucide-react'
+import { BarChart3, TrendingUp, ShoppingBag, Receipt, Package, RefreshCw, Download } from 'lucide-react'
 import {
   useDailyReport,
   useItemsReport,
@@ -13,6 +13,21 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
+
+// ─── CSV utility ─────────────────────────────────────────────────────────────
+
+function downloadCSV(filename: string, rows: (string | number | null | undefined)[][], headers: string[]) {
+  const escape = (v: string | number | null | undefined) => {
+    const s = v == null ? '' : String(v)
+    return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s
+  }
+  const lines = [headers, ...rows].map(r => r.map(escape).join(','))
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = filename; a.click()
+  URL.revokeObjectURL(url)
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -76,6 +91,26 @@ function DailyTab() {
   const [date, setDate] = useState(todayStr)
   const { data, isLoading, isFetching, refetch } = useDailyReport(date)
 
+  function handleCSV() {
+    if (!data) return
+    downloadCSV(`daily-report-${date}.csv`,
+      [
+        ['Total Orders', data.totalOrders, '', ''],
+        ['Paid Orders', data.paidOrders, '', ''],
+        ['Cancelled Orders', data.cancelledOrders, '', ''],
+        ['Gross Revenue (₹)', (data.grossRevenueInPaise / 100).toFixed(2), '', ''],
+        ['Discount (₹)', (data.discountInPaise / 100).toFixed(2), '', ''],
+        ['Net Revenue (₹)', (data.netRevenueInPaise / 100).toFixed(2), '', ''],
+        ['Avg Check (₹)', (data.avgCheckInPaise / 100).toFixed(2), '', ''],
+        ['CGST (₹)', (data.tax.cgstInPaise / 100).toFixed(2), '', ''],
+        ['SGST (₹)', (data.tax.sgstInPaise / 100).toFixed(2), '', ''],
+        ['Total Tax (₹)', (data.tax.totalInPaise / 100).toFixed(2), '', ''],
+        ...data.topItems.map(i => [i.name, `×${i.qty}`, `₹${(i.revenueInPaise / 100).toFixed(2)}`, 'Top Item']),
+      ],
+      ['Metric', 'Value', 'Sub-value', 'Note'],
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -89,6 +124,11 @@ function DailyTab() {
         <Button variant="ghost" size="icon-sm" onClick={() => refetch()}>
           <RefreshCw size={13} className={cn(isFetching && 'animate-spin')} />
         </Button>
+        {data && (
+          <Button variant="ghost" size="sm" className="gap-1.5 text-xs ml-auto" onClick={handleCSV}>
+            <Download size={12} /> Export CSV
+          </Button>
+        )}
       </div>
 
       {isLoading ? <Loading /> : !data ? <Empty message="No data for this date." /> : (
@@ -156,6 +196,13 @@ function ItemsTab() {
 
   const sorted = data?.items.slice().sort((a, b) => b.revenueInPaise - a.revenueInPaise) ?? []
 
+  function handleCSV() {
+    downloadCSV(`items-report-${from}-to-${to}.csv`,
+      sorted.map((item, i) => [i + 1, item.name, item.variantName ?? '', item.qty, (item.revenueInPaise / 100).toFixed(2), `${item.gstRate}%`]),
+      ['#', 'Item', 'Variant', 'Qty Sold', 'Revenue (₹)', 'GST Rate'],
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 flex-wrap">
@@ -170,6 +217,11 @@ function ItemsTab() {
             className="bg-background-card border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary-500" />
         </div>
         {data && <Badge variant="muted">{data.totalItems} items sold</Badge>}
+        {sorted.length > 0 && (
+          <Button variant="ghost" size="sm" className="gap-1.5 text-xs ml-auto" onClick={handleCSV}>
+            <Download size={12} /> Export CSV
+          </Button>
+        )}
       </div>
 
       {isLoading ? <Loading /> : sorted.length === 0 ? <Empty message="No items sold in this period." /> : (
@@ -221,6 +273,17 @@ function PaymentsTab() {
   const [to, setTo] = useState(todayStr)
   const { data, isLoading } = usePaymentsReport(from, to)
 
+  function handleCSV() {
+    if (!data) return
+    downloadCSV(`payments-report-${from}-to-${to}.csv`,
+      Object.entries(data.breakdown).map(([method, info]) => [
+        method, info.count, (info.totalInPaise / 100).toFixed(2),
+        data.grandTotalInPaise > 0 ? `${Math.round((info.totalInPaise / data.grandTotalInPaise) * 100)}%` : '0%',
+      ]),
+      ['Payment Method', 'Transactions', 'Total (₹)', '% of Total'],
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 flex-wrap">
@@ -234,6 +297,11 @@ function PaymentsTab() {
           <input type="date" value={to} min={from} max={todayStr()} onChange={(e) => setTo(e.target.value)}
             className="bg-background-card border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary-500" />
         </div>
+        {data && (
+          <Button variant="ghost" size="sm" className="gap-1.5 text-xs ml-auto" onClick={handleCSV}>
+            <Download size={12} /> Export CSV
+          </Button>
+        )}
       </div>
 
       {isLoading ? <Loading /> : !data ? <Empty message="No payment data for this period." /> : (
@@ -276,6 +344,22 @@ function GSTTab() {
   const [month, setMonth] = useState(currentMonthStr)
   const { data, isLoading } = useGSTReport(month)
 
+  function handleCSV() {
+    if (!data) return
+    downloadCSV(`gst-report-${month}.csv`,
+      [
+        ['Bills', data.billCount, '', ''],
+        ['Gross Revenue (₹)', (data.grossRevenueInPaise / 100).toFixed(2), '', ''],
+        ['Taxable Value (₹)', (data.taxableValueInPaise / 100).toFixed(2), '', ''],
+        ['CGST (₹)', (data.cgstInPaise / 100).toFixed(2), '', ''],
+        ['SGST (₹)', (data.sgstInPaise / 100).toFixed(2), '', ''],
+        ['IGST (₹)', (data.igstInPaise / 100).toFixed(2), '', ''],
+        ['Total GST (₹)', (data.totalGSTInPaise / 100).toFixed(2), '', ''],
+      ],
+      ['Component', 'Amount', '', ''],
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -286,6 +370,11 @@ function GSTTab() {
           onChange={(e) => setMonth(e.target.value)}
           className="bg-background-card border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
+        {data && (
+          <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={handleCSV}>
+            <Download size={12} /> Export CSV
+          </Button>
+        )}
       </div>
 
       {isLoading ? <Loading /> : !data ? <Empty message="No GST data for this month." /> : (
@@ -334,6 +423,19 @@ function GSTTab() {
 function InventoryTab() {
   const { data, isLoading, refetch, isFetching } = useInventoryValuation()
 
+  function handleCSV() {
+    if (!data) return
+    downloadCSV('inventory-valuation.csv',
+      data.items.map(i => [
+        i.name, i.category ?? '', i.currentStock, i.unit,
+        i.pricePerUnitPaise ? (i.pricePerUnitPaise / 100).toFixed(2) : '',
+        i.valueInPaise ? (i.valueInPaise / 100).toFixed(2) : '',
+        i.isLowStock ? 'Low Stock' : 'OK',
+      ]),
+      ['Item', 'Category', 'Stock', 'Unit', 'Cost/Unit (₹)', 'Total Value (₹)', 'Status'],
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -350,9 +452,16 @@ function InventoryTab() {
             </>
           )}
         </div>
-        <Button variant="ghost" size="icon-sm" onClick={() => refetch()}>
-          <RefreshCw size={13} className={cn(isFetching && 'animate-spin')} />
-        </Button>
+        <div className="flex items-center gap-2">
+          {data && (
+            <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={handleCSV}>
+              <Download size={12} /> Export CSV
+            </Button>
+          )}
+          <Button variant="ghost" size="icon-sm" onClick={() => refetch()}>
+            <RefreshCw size={13} className={cn(isFetching && 'animate-spin')} />
+          </Button>
+        </div>
       </div>
 
       {isLoading ? <Loading /> : !data || data.items.length === 0 ? <Empty message="No inventory data." /> : (

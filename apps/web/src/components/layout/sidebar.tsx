@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, LayoutGrid, ClipboardList, Receipt, ChefHat,
   UtensilsCrossed, Package, BarChart3, Link as LinkIcon,
-  Users, Settings, Bell,
+  Users, Settings, Bell, ContactRound, UserCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/auth-store'
@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge'
 const ICONS: Record<string, React.ElementType> = {
   LayoutDashboard, LayoutGrid, ClipboardList, Receipt, ChefHat,
   UtensilsCrossed, Package, BarChart3, Link: LinkIcon,
-  Users, Settings, Bell,
+  Users, Settings, Bell, ContactRound, UserCircle,
 }
 
 export function Sidebar() {

@@ -8,6 +8,46 @@
 
 export type { AuthUser } from './auth-store'
 
+// ─── Customer ────────────────────────────────────────────────────────────────
+
+export interface Customer {
+  id:             string
+  tenantId:       string
+  name:           string
+  phone:          string
+  email:          string | null
+  gstin:          string | null
+  companyName:    string | null
+  address:        string | null
+  totalVisits:    number
+  totalSpentPaise: number
+  lastVisitAt:    string | null
+  createdAt:      string
+  updatedAt:      string
+}
+
+export interface CustomerOrder {
+  id:          string
+  orderNumber: string
+  type:        string
+  status:      string
+  createdAt:   string
+  bill: {
+    billNumber:        string
+    grandTotalInPaise: number
+    paymentStatus:     string
+  } | null
+}
+
+export interface CustomerDetail extends Customer {
+  orders: CustomerOrder[]
+}
+
+export interface CustomerListResponse {
+  items:      Customer[]
+  pagination: PaginationMeta
+}
+
 // ─── Tables ──────────────────────────────────────────────────────────────────
 
 export type TableStatus = 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'CLEANING' | 'BLOCKED'
@@ -473,6 +513,75 @@ export interface NotificationsListResponse {
   page: number
   limit: number
   totalPages: number
+}
+
+// ─── Supplier + Purchase Orders ───────────────────────────────────────────────
+
+export interface Supplier {
+  id:            string
+  tenantId:      string
+  name:          string
+  contactPerson: string | null
+  phone:         string
+  email:         string | null
+  gstin:         string | null
+  address:       string | null
+  isActive:      boolean
+  createdAt:     string
+  updatedAt:     string
+}
+
+export type POStatus = 'DRAFT' | 'ORDERED' | 'RECEIVED' | 'CANCELLED'
+
+export interface PurchaseOrderItem {
+  id:               string
+  purchaseOrderId:  string
+  inventoryItemId:  string
+  quantity:         number
+  unitPriceInPaise: number
+  totalInPaise:     number
+}
+
+export interface PurchaseOrder {
+  id:            string
+  tenantId:      string
+  supplierId:    string
+  poNumber:      string
+  status:        POStatus
+  totalInPaise:  number
+  invoiceNumber: string | null
+  receivedAt:    string | null
+  note:          string | null
+  createdAt:     string
+  updatedAt:     string
+  supplier:      Supplier
+  items:         PurchaseOrderItem[]
+}
+
+// ─── Recipe ───────────────────────────────────────────────────────────────────
+
+export interface RecipeIngredient {
+  id:              string
+  menuItemId:      string
+  inventoryItemId: string
+  quantity:        number
+  inventoryItem: {
+    id:   string
+    name: string
+    unit: string
+    pricePerUnitPaise: number
+  }
+}
+
+// ─── Profile / Me ─────────────────────────────────────────────────────────────
+
+export interface ProfileMe {
+  id:       string
+  tenantId: string
+  name:     string
+  email:    string | null
+  phone:    string
+  role:     string
 }
 
 // ─── Pagination ──────────────────────────────────────────────────────────────

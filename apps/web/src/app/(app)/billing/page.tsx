@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Receipt, CreditCard, X, ChevronRight, Trash2 } from 'lucide-react'
+import { Receipt, CreditCard, X, ChevronRight, Trash2, Printer } from 'lucide-react'
 import { useOrders } from '@/hooks/use-orders'
 import { useBills, useBill, useGenerateBill, useRecordPayment, useVoidBill } from '@/hooks/use-billing'
 import { useAuthStore } from '@/lib/auth-store'
@@ -157,6 +157,7 @@ function BillDetail({ billId }: { billId: string }) {
   const { data: bill, isLoading } = useBill(billId)
   const [showPayment, setShowPayment] = useState(false)
   const [showVoidConfirm, setShowVoidConfirm] = useState(false)
+  const [showPrint, setShowPrint] = useState(false)
   const voidBill = useVoidBill()
   const user = useAuthStore((s) => s.user)
   const canVoid = user?.role === 'OWNER' || user?.role === 'MANAGER'
@@ -182,7 +183,12 @@ function BillDetail({ billId }: { billId: string }) {
             {bill.order.guestCount ? ` · ${bill.order.guestCount} covers` : ''}
           </p>
         </div>
-        <Badge variant={ps.variant}>{ps.label}</Badge>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={() => setShowPrint(true)}>
+            <Printer size={13} /> Print
+          </Button>
+          <Badge variant={ps.variant}>{ps.label}</Badge>
+        </div>
       </div>
 
       {/* Line items */}
@@ -285,6 +291,8 @@ function BillDetail({ billId }: { billId: string }) {
       )}
 
       {/* Void — OWNER / MANAGER only, not on already-voided bills */}
+      {showPrint && <PrintBillModal bill={bill} onClose={() => setShowPrint(false)} />}
+
       {canVoid && bill.paymentStatus !== 'REFUNDED' && (
         showVoidConfirm ? (
           <div className="rounded-xl border border-danger/30 bg-danger/5 p-4 space-y-3">
@@ -311,6 +319,133 @@ function BillDetail({ billId }: { billId: string }) {
           </Button>
         )
       )}
+    </div>
+  )
+}
+
+// ─── Print Bill Modal ─────────────────────────────────────────────────────────
+
+function PrintBillModal({ bill, onClose }: { bill: Bill; onClose: () => void }) {
+  function handlePrint() {
+    const printArea = document.getElementById('atlas-print-receipt')
+    if (!printArea) return
+    const win = window.open('', '_blank', 'width=320,height=600')
+    if (!win) return
+    win.document.write(`<!DOCTYPE html><html><head><title>Bill #${bill.billNumber}</title>
+<style>
+  @page { size: 80mm auto; margin: 0; }
+  body { font-family: 'Courier New', monospace; font-size: 11px; color: #000; background: #fff; padding: 8px; width: 80mm; }
+  h1 { font-size: 14px; text-align: center; margin: 0 0 4px; }
+  .center { text-align: center; }
+  .divider { border: none; border-top: 1px dashed #000; margin: 6px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  td { padding: 1px 0; }
+  .right { text-align: right; }
+  .bold { font-weight: bold; }
+  .total-row td { padding-top: 4px; }
+  .grand td { font-size: 13px; border-top: 1px solid #000; padding-top: 4px; font-weight: bold; }
+</style></head><body>`)
+    win.document.write(printArea.innerHTML)
+    win.document.write('</body></html>')
+    win.document.close()
+    win.focus()
+    setTimeout(() => { win.print(); win.close() }, 200)
+  }
+
+  const paidAmount = bill.payments.reduce((s, p) => s + p.amountInPaise, 0)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="bg-white text-black rounded-xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col w-[340px]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+          <span className="font-bold text-sm text-gray-800">Print Preview</span>
+          <button type="button" onClick={onClose} className="text-gray-500 hover:text-gray-800"><X size={15} /></button>
+        </div>
+
+        <div id="atlas-print-receipt" className="flex-1 overflow-y-auto p-4 font-mono text-[11px] leading-tight bg-white text-black">
+          <h1 className="text-[14px] font-bold text-center mb-1">ATLAS POS</h1>
+          <p className="text-center text-[10px] mb-1">Tax Invoice</p>
+          <hr className="border-dashed border-gray-400 my-2" />
+          <table className="w-full">
+            <tbody>
+              <tr><td>Bill No:</td><td className="text-right font-bold">#{bill.billNumber}</td></tr>
+              <tr><td>Order:</td><td className="text-right">#{bill.order?.orderNumber}</td></tr>
+              {bill.order?.table && <tr><td>Table:</td><td className="text-right">{bill.order.table.name}</td></tr>}
+              <tr><td>Date:</td><td className="text-right">{new Date().toLocaleDateString('en-IN')}</td></tr>
+              <tr><td>Time:</td><td className="text-right">{new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</td></tr>
+            </tbody>
+          </table>
+          <hr className="border-dashed border-gray-400 my-2" />
+
+          <table className="w-full">
+            <thead>
+              <tr className="font-bold">
+                <td>Item</td><td className="text-right">Qty</td><td className="text-right">Amt</td>
+              </tr>
+            </thead>
+            <tbody>
+              {bill.order?.items?.map((item) => (
+                <tr key={item.id}>
+                  <td className="max-w-[140px] break-words pr-1">
+                    {item.menuItemName}{item.variantName ? ` (${item.variantName})` : ''}
+                  </td>
+                  <td className="text-right">{item.quantity}</td>
+                  <td className="text-right whitespace-nowrap">₹{(item.totalPriceInPaise / 100).toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <hr className="border-dashed border-gray-400 my-2" />
+
+          <table className="w-full">
+            <tbody>
+              <tr><td>Subtotal</td><td className="text-right">₹{(bill.subtotalInPaise / 100).toFixed(2)}</td></tr>
+              {bill.discountInPaise > 0 && <tr><td>Discount</td><td className="text-right">-₹{(bill.discountInPaise / 100).toFixed(2)}</td></tr>}
+              {bill.serviceChargeInPaise > 0 && <tr><td>Service Charge</td><td className="text-right">₹{(bill.serviceChargeInPaise / 100).toFixed(2)}</td></tr>}
+              {bill.cgstInPaise > 0 && <tr><td>CGST</td><td className="text-right">₹{(bill.cgstInPaise / 100).toFixed(2)}</td></tr>}
+              {bill.sgstInPaise > 0 && <tr><td>SGST</td><td className="text-right">₹{(bill.sgstInPaise / 100).toFixed(2)}</td></tr>}
+              {bill.igstInPaise > 0 && <tr><td>IGST</td><td className="text-right">₹{(bill.igstInPaise / 100).toFixed(2)}</td></tr>}
+              {bill.roundOffInPaise !== 0 && <tr><td>Round Off</td><td className="text-right">₹{(bill.roundOffInPaise / 100).toFixed(2)}</td></tr>}
+            </tbody>
+          </table>
+          <hr className="border-solid border-gray-800 my-1" />
+          <table className="w-full">
+            <tbody>
+              <tr className="font-bold text-[13px]">
+                <td>GRAND TOTAL</td>
+                <td className="text-right">₹{(bill.grandTotalInPaise / 100).toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          {bill.payments.length > 0 && (
+            <>
+              <hr className="border-dashed border-gray-400 my-2" />
+              <table className="w-full">
+                <tbody>
+                  {bill.payments.map(p => (
+                    <tr key={p.id}><td>{p.method}</td><td className="text-right">₹{(p.amountInPaise / 100).toFixed(2)}</td></tr>
+                  ))}
+                  {paidAmount >= bill.grandTotalInPaise && (
+                    <tr className="font-bold"><td>CHANGE</td><td className="text-right">₹{((paidAmount - bill.grandTotalInPaise) / 100).toFixed(2)}</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </>
+          )}
+
+          <hr className="border-dashed border-gray-400 my-2" />
+          <p className="text-center text-[10px]">Thank you for dining with us!</p>
+          <p className="text-center text-[10px] mt-1">Powered by Atlas POS</p>
+        </div>
+
+        <div className="flex gap-2 px-4 py-3 border-t border-gray-200">
+          <button type="button" onClick={onClose} className="flex-1 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50">Close</button>
+          <button type="button" onClick={handlePrint} className="flex-1 py-2 rounded-lg bg-orange-500 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-orange-600">
+            <Printer size={14} /> Print Bill
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

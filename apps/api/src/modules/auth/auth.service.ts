@@ -7,6 +7,7 @@ import {
   UnauthorizedError,
   NotFoundError,
   BadRequestError,
+  ConflictError,
   TooManyRequestsError,
   ServiceUnavailableError,
 } from '../../shared/errors.js'
@@ -16,6 +17,9 @@ import type {
   RefreshInput,
   SendOTPInput,
   VerifyOTPInput,
+  UpdateMeInput,
+  ChangePasswordInput,
+  SetPINInput,
 } from './auth.schema.js'
 
 export interface TokenPair {
@@ -348,6 +352,52 @@ export async function logout(input: RefreshInput): Promise<void> {
     where: { id: session.id },
     data: { revokedAt: new Date() },
   })
+}
+
+export async function getMe(userId: string): Promise<AuthUser> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, tenantId: true, name: true, email: true, phone: true, role: true },
+  })
+  if (!user) throw new NotFoundError('User', userId)
+  return user
+}
+
+export async function updateMe(userId: string, tenantId: string, input: UpdateMeInput): Promise<AuthUser> {
+  if (input.phone) {
+    const conflict = await prisma.user.findFirst({
+      where: { tenantId, phone: input.phone, id: { not: userId }, deletedAt: null },
+    })
+    if (conflict) throw new ConflictError(`Phone ${input.phone} is already in use.`)
+  }
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: input,
+    select: { id: true, tenantId: true, name: true, email: true, phone: true, role: true },
+  })
+  return user
+}
+
+export async function changePassword(userId: string, input: ChangePasswordInput): Promise<void> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { passwordHash: true },
+  })
+  if (!user?.passwordHash) throw new BadRequestError('No password set — use PIN or OTP login.')
+
+  const valid = await bcrypt.compare(input.currentPassword, user.passwordHash)
+  if (!valid) throw new UnauthorizedError('Current password is incorrect.')
+
+  const hash = await bcrypt.hash(input.newPassword, 12)
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash: hash, passwordChangedAt: new Date() },
+  })
+}
+
+export async function setMyPIN(userId: string, input: SetPINInput): Promise<void> {
+  const pin = await bcrypt.hash(input.pin, 10)
+  await prisma.user.update({ where: { id: userId }, data: { pin } })
 }
 
 export async function sendOTP(input: SendOTPInput): Promise<{ message: string }> {
