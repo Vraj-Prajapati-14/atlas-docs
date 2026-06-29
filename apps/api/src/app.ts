@@ -134,9 +134,10 @@ export async function buildApp() {
 function convertBigInts(value: unknown): unknown {
   if (typeof value === 'bigint') return Number(value)
   if (Array.isArray(value)) return value.map(convertBigInts)
+  if (value instanceof Date) return value  // Date.toJSON() produces the ISO string during JSON.stringify
   if (value !== null && typeof value === 'object') {
     // Prisma.Decimal (decimal.js) — serialize as number
-    if (!(value instanceof Date) && typeof (value as { toNumber?: unknown }).toNumber === 'function') {
+    if (typeof (value as { toNumber?: unknown }).toNumber === 'function') {
       return (value as { toNumber(): number }).toNumber()
     }
     const out: Record<string, unknown> = {}
