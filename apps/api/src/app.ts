@@ -26,6 +26,9 @@ import { staffPlugin } from './modules/staff/index.js'
 import { settingsPlugin } from './modules/settings/index.js'
 import { customersPlugin } from './modules/customers/index.js'
 import { publicPlugin } from './modules/public/index.js'
+import { registerPlugin } from './modules/register/index.js'
+import { onboardingPlugin } from './modules/onboarding/index.js'
+import { adminPlugin } from './modules/admin/index.js'
 
 export async function buildApp() {
   const app = Fastify({
@@ -125,6 +128,9 @@ export async function buildApp() {
       await v1.register(settingsPlugin, { prefix: '/settings' })
       await v1.register(customersPlugin, { prefix: '/customers' })
       await v1.register(publicPlugin, { prefix: '/public' })
+      await v1.register(registerPlugin, { prefix: '/register' })
+      await v1.register(onboardingPlugin, { prefix: '/onboarding' })
+      await v1.register(adminPlugin, { prefix: '/admin' })
       v1.log.info('API v1 routes registered')
     },
     { prefix: '/api/v1' },

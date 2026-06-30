@@ -26,6 +26,7 @@ import {
   changePassword,
   setMyPIN,
   verifyManagerPIN,
+  lookupTenantsByPhone,
 } from './auth.service.js'
 
 function validate<S extends z.ZodTypeAny>(schema: S, data: unknown): z.output<S> {
@@ -66,6 +67,16 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const body = validate(LogoutBody, request.body)
     await logout(body)
     return noContent(reply)
+  })
+
+  // ─── Lookup which tenant(s) a phone belongs to (public, no auth) ────────────
+  app.post('/lookup-tenant', { config: { rateLimit: STRICT_RATE_LIMIT } }, async (request, reply) => {
+    const { phone } = validate(
+      z.object({ phone: z.string().regex(/^[6-9]\d{9}$/, 'Invalid mobile number') }),
+      request.body,
+    )
+    const tenants = await lookupTenantsByPhone(phone)
+    return ok(reply, { tenants })
   })
 
   // ─── Send OTP via MSG91 ─────────────────────────────────────────────────────

@@ -421,6 +421,26 @@ export async function verifyManagerPIN(tenantId: string, pin: string): Promise<{
   return { valid: false }
 }
 
+export async function lookupTenantsByPhone(phone: string) {
+  const users = await prisma.user.findMany({
+    where: { phone, isActive: true, deletedAt: null },
+    select: {
+      tenantId: true,
+      tenant: {
+        select: { id: true, name: true, slug: true, logoUrl: true, city: true, planStatus: true },
+      },
+    },
+  })
+  return users.map((u) => ({
+    tenantId: u.tenantId,
+    name: u.tenant.name,
+    slug: u.tenant.slug,
+    logoUrl: u.tenant.logoUrl,
+    city: u.tenant.city,
+    planStatus: u.tenant.planStatus,
+  }))
+}
+
 export async function sendOTP(input: SendOTPInput): Promise<{ message: string }> {
   // Always return same message to avoid user enumeration
   const userExists = await prisma.user.findFirst({

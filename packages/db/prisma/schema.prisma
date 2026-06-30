@@ -126,6 +126,12 @@ enum SubscriptionPlan {
   PRO
 }
 
+enum TenantPlanStatus {
+  PENDING_PAYMENT
+  ACTIVE
+  SUSPENDED
+}
+
 enum NotificationChannel {
   WHATSAPP
   SMS
@@ -158,8 +164,11 @@ model Tenant {
   name            String
   slug            String           @unique  // "priya-kitchen-mg-road"
   type            RestaurantType   @default(CASUAL_DINING)
-  plan            SubscriptionPlan @default(FREE)
+  plan            SubscriptionPlan  @default(FREE)
   planExpiresAt   DateTime?
+  planStatus      TenantPlanStatus  @default(PENDING_PAYMENT)
+  logoUrl         String?
+  onboardingCompletedAt DateTime?
 
   // Legal
   gstin           String?
@@ -203,6 +212,7 @@ model Tenant {
   auditLogs       AuditLog[]
   settings        TenantSettings?
   aggregatorCreds AggregatorCredential[]
+  onboardingSteps TenantOnboardingStep?
 
   @@index([slug])
   @@index([phone])
@@ -961,4 +971,41 @@ model TenantSettings {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("tenant_settings")
+}
+
+// ─────────────────────────────────────────────
+// SUPER ADMIN (Atlas platform admins — not tied to any tenant)
+// ─────────────────────────────────────────────
+
+model SuperAdmin {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("super_admins")
+}
+
+// ─────────────────────────────────────────────
+// TENANT ONBOARDING (tracks wizard completion per restaurant)
+// ─────────────────────────────────────────────
+
+model TenantOnboardingStep {
+  id                    String    @id @default(cuid())
+  tenantId              String    @unique
+  restaurantProfileDone Boolean   @default(false)
+  outletDone            Boolean   @default(false)
+  menuDone              Boolean   @default(false)
+  tablesDone            Boolean   @default(false)
+  staffDone             Boolean   @default(false)
+  firstOrderDone        Boolean   @default(false)
+  completedAt           DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_onboarding_steps")
 }
