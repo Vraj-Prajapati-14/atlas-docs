@@ -1,18 +1,19 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Search, ShoppingCart, Trash2, Plus, Minus, Send } from 'lucide-react'
-import { useTable } from '@/hooks/use-tables'
+import { ArrowLeft, Search, ShoppingCart, Trash2, Plus, Minus, Send, UserRound, X, ArrowRightLeft, Star } from 'lucide-react'
+import { useTable, useTables } from '@/hooks/use-tables'
 import { useMenuCategories, useMenuItems } from '@/hooks/use-menu'
-import { useActiveTableOrder, useCreateAndConfirmOrder, useFireKOT } from '@/hooks/use-orders'
+import { useActiveTableOrder, useCreateAndConfirmOrder, useFireKOT, useTransferOrder } from '@/hooks/use-orders'
+import { useCustomers } from '@/hooks/use-customers'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
 import { Badge } from '@/components/ui/badge'
 import { FoodTypeDot } from '@/components/pos/food-type-dot'
 import { cn } from '@/lib/utils'
-import type { CartItem, MenuItem, MenuItemVariant } from '@/lib/api-types'
+import type { CartItem, Customer, MenuItem, MenuItemVariant, Table } from '@/lib/api-types'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -36,12 +37,16 @@ export default function POSPage({ params }: { params: { tableId: string } }) {
   const { data: table, isLoading: tableLoading } = useTable(tableId)
   const { data: activeOrder } = useActiveTableOrder(tableId)
   const { data: categories = [] } = useMenuCategories()
+  const { data: allTables = [] } = useTables()
   const createAndConfirm = useCreateAndConfirmOrder()
   const fireKOT = useFireKOT()
+  const transferOrder = useTransferOrder()
 
   const [activeCat, setActiveCat] = useState<string>('all')
   const [search, setSearch] = useState('')
   const [cart, setCart] = useState<CartItem[]>([])
+  const [customer, setCustomer] = useState<Customer | null>(null)
+  const [transferOpen, setTransferOpen] = useState(false)
 
   const { data: items = [], isLoading: itemsLoading } = useMenuItems({
     categoryId: activeCat === 'all' ? undefined : activeCat,
@@ -190,11 +195,23 @@ export default function POSPage({ params }: { params: { tableId: string } }) {
               </Badge>
             )}
           </div>
-          {cart.length > 0 && (
-            <Button variant="ghost" size="icon-sm" onClick={() => setCart([])}>
-              <Trash2 size={13} className="text-danger" />
-            </Button>
-          )}
+          <div className="flex items-center gap-1">
+            {activeOrder && (
+              <Button variant="ghost" size="icon-sm" title="Transfer table" onClick={() => setTransferOpen(true)}>
+                <ArrowRightLeft size={13} className="text-muted-foreground hover:text-foreground" />
+              </Button>
+            )}
+            {cart.length > 0 && (
+              <Button variant="ghost" size="icon-sm" onClick={() => setCart([])}>
+                <Trash2 size={13} className="text-danger" />
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Customer attach */}
+        <div className="px-4 py-2 border-b border-border/50 shrink-0">
+          <CustomerPicker selected={customer} onSelect={setCustomer} />
         </div>
 
         {/* Cart items */}
@@ -274,11 +291,101 @@ export default function POSPage({ params }: { params: { tableId: string } }) {
           </Button>
         </div>
       </div>
+
+      {/* Transfer table modal */}
+      {transferOpen && activeOrder && (
+        <TransferTableModal
+          orderId={activeOrder.id}
+          currentTableId={tableId}
+          tables={allTables}
+          onClose={() => setTransferOpen(false)}
+          onTransfer={async (toTableId) => {
+            await transferOrder.mutateAsync({ orderId: activeOrder.id, toTableId })
+            setTransferOpen(false)
+            router.push(`/floor/${toTableId}`)
+          }}
+          isPending={transferOrder.isPending}
+        />
+      )}
     </div>
   )
 }
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
+
+function CustomerPicker({ selected, onSelect }: { selected: Customer | null; onSelect: (c: Customer | null) => void }) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const { data } = useCustomers(query.length >= 2 ? { search: query } : undefined)
+  const customers = data?.items ?? []
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  if (selected) {
+    return (
+      <div className="flex items-center justify-between bg-primary-500/10 rounded-lg px-3 py-1.5">
+        <div className="flex items-center gap-2">
+          <UserRound size={12} className="text-primary-500 shrink-0" />
+          <div>
+            <p className="text-xs font-semibold text-primary-500">{selected.name}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] text-muted-foreground">{selected.phone}</p>
+              {selected.loyaltyPointsBalance > 0 && (
+                <span className="flex items-center gap-0.5 text-[10px] text-warning font-semibold">
+                  <Star size={9} className="fill-warning text-warning" />
+                  {selected.loyaltyPointsBalance} pts
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <button type="button" onClick={() => onSelect(null)} className="text-muted-foreground hover:text-foreground p-0.5">
+          <X size={12} />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <div className="flex items-center gap-2 bg-background-card border border-border/50 rounded-lg px-2.5 py-1.5">
+        <UserRound size={12} className="text-muted-foreground shrink-0" />
+        <input
+          value={query}
+          onChange={e => { setQuery(e.target.value); setOpen(true) }}
+          onFocus={() => setOpen(true)}
+          placeholder="Attach customer (optional)…"
+          className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/40 focus:outline-none min-w-0"
+        />
+      </div>
+      {open && customers.length > 0 && (
+        <div className="absolute top-full mt-1 left-0 right-0 z-50 bg-background-card border border-border rounded-lg shadow-xl overflow-hidden max-h-48 overflow-y-auto">
+          {customers.slice(0, 8).map(c => (
+            <button key={c.id} type="button"
+              onMouseDown={e => { e.preventDefault(); onSelect(c); setQuery(''); setOpen(false) }}
+              className="w-full flex items-center gap-3 px-3 py-2 hover:bg-white/5 text-left">
+              <div className="w-6 h-6 rounded-full bg-primary-500/15 text-primary-500 text-[10px] font-bold flex items-center justify-center shrink-0">
+                {c.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-foreground truncate">{c.name}</p>
+                <p className="text-[10px] text-muted-foreground">{c.phone}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function CatTab({ id, label, active, onClick }: { id: string; label: string; active: boolean; onClick: () => void }) {
   return (
@@ -295,6 +402,59 @@ function CatTab({ id, label, active, onClick }: { id: string; label: string; act
     >
       {label}
     </button>
+  )
+}
+
+function TransferTableModal({
+  orderId,
+  currentTableId,
+  tables,
+  onClose,
+  onTransfer,
+  isPending,
+}: {
+  orderId: string
+  currentTableId: string
+  tables: Table[]
+  onClose: () => void
+  onTransfer: (toTableId: string) => Promise<void>
+  isPending: boolean
+}) {
+  const available = tables.filter(
+    (t) => t.id !== currentTableId && t.status === 'AVAILABLE',
+  )
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-background-card border border-border rounded-xl w-full max-w-sm shadow-2xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <p className="text-sm font-bold">Transfer to Another Table</p>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="p-4 max-h-80 overflow-y-auto">
+          {available.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">No available tables to transfer to.</p>
+          ) : (
+            <div className="grid grid-cols-3 gap-2">
+              {available.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => onTransfer(t.id)}
+                  className="flex flex-col items-center justify-center p-3 rounded-lg border border-border bg-background hover:border-primary-500/60 hover:bg-background-hover transition-colors disabled:opacity-50"
+                >
+                  <span className="text-xs font-bold text-foreground">{t.name}</span>
+                  <span className="text-[10px] text-muted-foreground mt-0.5">Cap {t.capacity}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
 

@@ -46,7 +46,7 @@ export default function OrdersPage() {
     limit: 50,
   })
 
-  const allOrders = data?.data ?? []
+  const allOrders = data ?? []
   const orders = tab === 'active'
     ? allOrders.filter((o) => ACTIVE_STATUSES.includes(o.status))
     : allOrders

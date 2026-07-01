@@ -22,6 +22,13 @@ import { inventoryPlugin } from './modules/inventory/index.js'
 import { reportsPlugin } from './modules/reports/index.js'
 import { notificationsPlugin } from './modules/notifications/index.js'
 import { aggregatorsPlugin } from './modules/aggregators/index.js'
+import { staffPlugin } from './modules/staff/index.js'
+import { settingsPlugin } from './modules/settings/index.js'
+import { customersPlugin } from './modules/customers/index.js'
+import { publicPlugin } from './modules/public/index.js'
+import { registerPlugin } from './modules/register/index.js'
+import { onboardingPlugin } from './modules/onboarding/index.js'
+import { adminPlugin } from './modules/admin/index.js'
 
 export async function buildApp() {
   const app = Fastify({
@@ -117,6 +124,13 @@ export async function buildApp() {
       await v1.register(reportsPlugin, { prefix: '/reports' })
       await v1.register(notificationsPlugin, { prefix: '/notifications' })
       await v1.register(aggregatorsPlugin, { prefix: '/aggregators' })
+      await v1.register(staffPlugin, { prefix: '/staff' })
+      await v1.register(settingsPlugin, { prefix: '/settings' })
+      await v1.register(customersPlugin, { prefix: '/customers' })
+      await v1.register(publicPlugin, { prefix: '/public' })
+      await v1.register(registerPlugin, { prefix: '/register' })
+      await v1.register(onboardingPlugin, { prefix: '/onboarding' })
+      await v1.register(adminPlugin, { prefix: '/admin' })
       v1.log.info('API v1 routes registered')
     },
     { prefix: '/api/v1' },
@@ -128,9 +142,10 @@ export async function buildApp() {
 function convertBigInts(value: unknown): unknown {
   if (typeof value === 'bigint') return Number(value)
   if (Array.isArray(value)) return value.map(convertBigInts)
+  if (value instanceof Date) return value  // Date.toJSON() produces the ISO string during JSON.stringify
   if (value !== null && typeof value === 'object') {
     // Prisma.Decimal (decimal.js) — serialize as number
-    if (!(value instanceof Date) && typeof (value as { toNumber?: unknown }).toNumber === 'function') {
+    if (typeof (value as { toNumber?: unknown }).toNumber === 'function') {
       return (value as { toNumber(): number }).toNumber()
     }
     const out: Record<string, unknown> = {}

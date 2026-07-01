@@ -8,6 +8,59 @@
 
 export type { AuthUser } from './auth-store'
 
+// ─── Customer ────────────────────────────────────────────────────────────────
+
+export interface Customer {
+  id:                   string
+  tenantId:             string
+  name:                 string
+  phone:                string
+  email:                string | null
+  gstin:                string | null
+  companyName:          string | null
+  address:              string | null
+  totalVisits:          number
+  totalSpentPaise:      number
+  lastVisitAt:          string | null
+  loyaltyPointsBalance: number
+  createdAt:            string
+  updatedAt:            string
+}
+
+export type LoyaltyLedgerType = 'EARN' | 'REDEEM' | 'ADJUSTMENT'
+
+export interface LoyaltyLedgerEntry {
+  id:          string
+  customerId:  string
+  points:      number
+  type:        LoyaltyLedgerType
+  referenceId: string | null
+  note:        string | null
+  createdAt:   string
+}
+
+export interface CustomerOrder {
+  id:          string
+  orderNumber: string
+  type:        string
+  status:      string
+  createdAt:   string
+  bill: {
+    billNumber:        string
+    grandTotalInPaise: number
+    paymentStatus:     string
+  } | null
+}
+
+export interface CustomerDetail extends Customer {
+  orders: CustomerOrder[]
+}
+
+export interface CustomerListResponse {
+  items:      Customer[]
+  pagination: PaginationMeta
+}
+
 // ─── Tables ──────────────────────────────────────────────────────────────────
 
 export type TableStatus = 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'CLEANING' | 'BLOCKED'
@@ -112,6 +165,7 @@ export interface Order {
   status: OrderStatus
   tableId: string | null
   table: { id: string; name: string } | null
+  customer: { id: string; name: string; phone: string; email: string | null; loyaltyPointsBalance: number } | null
   guestCount: number | null
   note: string | null
   subtotalInPaise: number
@@ -248,6 +302,319 @@ export interface StockAdjustment {
   newStockInBaseUnit: number
   note: string | null
   createdAt: string
+}
+
+// ─── Staff ────────────────────────────────────────────────────────────────────
+
+export type UserRole = 'OWNER' | 'MANAGER' | 'CASHIER' | 'WAITER' | 'CHEF' | 'INVENTORY_MANAGER'
+
+export interface StaffMember {
+  id: string
+  name: string
+  phone: string
+  email: string | null
+  role: UserRole
+  isActive: boolean
+  isOwner: boolean
+  lastLoginAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface StaffListResponse {
+  items: StaffMember[]
+  pagination: PaginationMeta
+}
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+
+export type RestaurantType =
+  | 'QSR' | 'CASUAL_DINING' | 'FINE_DINING' | 'CAFE'
+  | 'BAR' | 'FOOD_TRUCK' | 'CLOUD_KITCHEN' | 'BAKERY' | 'DHABA' | 'SWEET_SHOP'
+
+export interface TenantInfo {
+  id: string
+  name: string
+  slug: string
+  type: RestaurantType
+  plan: string
+  phone: string
+  email: string | null
+  website: string | null
+  gstin: string | null
+  fssaiLicense: string | null
+  panNumber: string | null
+  addressLine1: string
+  addressLine2: string | null
+  city: string
+  state: string
+  pincode: string
+  currency: string
+  timezone: string
+  createdAt: string
+}
+
+export interface TenantSettings {
+  id: string
+  tenantId: string
+  serviceChargePercent: number
+  serviceChargeOnTakeaway: boolean
+  roundOffBill: boolean
+  printKOTAutomatically: boolean
+  whatsappReceipts: boolean
+  nightlySummaryPhone: string | null
+  nightlySummaryTime: string
+  isInterState: boolean
+  kotPrinterIp: string | null
+  billPrinterIp: string | null
+  currencySymbol: string
+  discountApprovalThreshold: number
+  loyaltyEnabled: boolean
+  loyaltyPointsPerRupee: number
+  loyaltyRedemptionRate: number
+  updatedAt: string
+}
+
+// ─── Public / QR Self-Ordering ───────────────────────────────────────────────
+
+export interface PublicMenuResponse {
+  table: {
+    id: string
+    name: string
+    capacity: number
+    status: TableStatus
+    floor: { id: string; name: string } | null
+    outlet: { id: string; name: string }
+  }
+  categories: Array<{ id: string; name: string; description: string | null; sortOrder: number }>
+  items: MenuItem[]
+}
+
+export interface OutletInfo {
+  id: string
+  name: string
+  phone: string
+  addressLine1: string
+  addressLine2: string | null
+  city: string
+  state: string
+  pincode: string
+  isActive: boolean
+  createdAt: string
+}
+
+export interface SettingsResponse {
+  tenant: TenantInfo
+  settings: TenantSettings | null
+  outlet: OutletInfo | null
+}
+
+// ─── Aggregators ──────────────────────────────────────────────────────────────
+
+export type AggregatorPlatform = 'ZOMATO' | 'SWIGGY' | 'MAGICPIN' | 'EATSURE'
+export type AggregatorOrderStatus = 'NEW' | 'ACCEPTED' | 'DISPATCHED' | 'DELIVERED' | 'CANCELLED'
+
+export interface AggregatorCredential {
+  id: string
+  platform: AggregatorPlatform
+  outletId: string
+  restaurantId: string
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AggregatorOrderItem {
+  name: string
+  quantity: number
+  unitPriceInPaise: number
+}
+
+export interface AggregatorOrder {
+  id: string
+  platformOrderId: string
+  platform: AggregatorPlatform
+  status: AggregatorOrderStatus
+  customerName: string | null
+  customerPhone: string | null
+  deliveryAddress: string | null
+  items: AggregatorOrderItem[]
+  itemsTotalInPaise: number
+  deliveryFeeInPaise: number
+  platformFeeInPaise: number
+  grandTotalInPaise: number
+  acceptedAt: string | null
+  dispatchedAt: string | null
+  deliveredAt: string | null
+  cancelledAt: string | null
+  createdAt: string
+}
+
+// ─── Reports ─────────────────────────────────────────────────────────────────
+
+export interface DailyReport {
+  date: string
+  totalOrders: number
+  paidOrders: number
+  cancelledOrders: number
+  grossRevenueInPaise: number
+  discountInPaise: number
+  netRevenueInPaise: number
+  avgCheckInPaise: number
+  tax: {
+    cgstInPaise: number
+    sgstInPaise: number
+    igstInPaise: number
+    totalInPaise: number
+  }
+  paymentBreakdown: Record<string, number>
+  topItems: Array<{ name: string; qty: number; revenueInPaise: number }>
+}
+
+export interface ItemsReport {
+  from: string
+  to: string
+  items: Array<{
+    name: string
+    variantName: string | null
+    qty: number
+    revenueInPaise: number
+    gstRate: number
+  }>
+  totalItems: number
+}
+
+export interface PaymentsReport {
+  from: string
+  to: string
+  breakdown: Record<string, { count: number; totalInPaise: number }>
+  grandTotalInPaise: number
+  transactionCount: number
+}
+
+export interface GSTReport {
+  month: string
+  billCount: number
+  taxableValueInPaise: number
+  cgstInPaise: number
+  sgstInPaise: number
+  igstInPaise: number
+  totalGSTInPaise: number
+  grossRevenueInPaise: number
+}
+
+export interface InventoryValuationItem {
+  id: string
+  name: string
+  category: string | null
+  unit: string
+  currentStock: number
+  lowStockThreshold: number
+  pricePerUnitPaise: number
+  valueInPaise: number
+  isLowStock: boolean
+}
+
+export interface InventoryValuationReport {
+  items: InventoryValuationItem[]
+  totalItems: number
+  lowStockCount: number
+  totalValueInPaise: number
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+export type NotificationChannel = 'WHATSAPP' | 'SMS' | 'EMAIL' | 'PUSH'
+
+export interface Notification {
+  id: string
+  tenantId: string
+  userId: string | null
+  channel: NotificationChannel
+  type: string
+  title: string
+  body: string
+  sentAt: string | null
+  failedAt: string | null
+  error: string | null
+  createdAt: string
+}
+
+export interface NotificationsListResponse {
+  notifications: Notification[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
+// ─── Supplier + Purchase Orders ───────────────────────────────────────────────
+
+export interface Supplier {
+  id:            string
+  tenantId:      string
+  name:          string
+  contactPerson: string | null
+  phone:         string
+  email:         string | null
+  gstin:         string | null
+  address:       string | null
+  isActive:      boolean
+  createdAt:     string
+  updatedAt:     string
+}
+
+export type POStatus = 'DRAFT' | 'ORDERED' | 'RECEIVED' | 'CANCELLED'
+
+export interface PurchaseOrderItem {
+  id:               string
+  purchaseOrderId:  string
+  inventoryItemId:  string
+  quantity:         number
+  unitPriceInPaise: number
+  totalInPaise:     number
+}
+
+export interface PurchaseOrder {
+  id:            string
+  tenantId:      string
+  supplierId:    string
+  poNumber:      string
+  status:        POStatus
+  totalInPaise:  number
+  invoiceNumber: string | null
+  receivedAt:    string | null
+  note:          string | null
+  createdAt:     string
+  updatedAt:     string
+  supplier:      Supplier
+  items:         PurchaseOrderItem[]
+}
+
+// ─── Recipe ───────────────────────────────────────────────────────────────────
+
+export interface RecipeIngredient {
+  id:              string
+  menuItemId:      string
+  inventoryItemId: string
+  quantity:        number
+  inventoryItem: {
+    id:   string
+    name: string
+    unit: string
+    pricePerUnitPaise: number
+  }
+}
+
+// ─── Profile / Me ─────────────────────────────────────────────────────────────
+
+export interface ProfileMe {
+  id:       string
+  tenantId: string
+  name:     string
+  email:    string | null
+  phone:    string
+  role:     string
 }
 
 // ─── Pagination ──────────────────────────────────────────────────────────────

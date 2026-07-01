@@ -36,6 +36,25 @@ export const VerifyOTPBody = z.object({
   deviceInfo: z.string().max(200).optional(),
 })
 
+export const UpdateMeBody = z.object({
+  name:  z.string().min(2).max(100).optional(),
+  phone: z.string().regex(PHONE_REGEX, 'Invalid Indian mobile number').optional(),
+  email: z.string().email().optional().nullable(),
+})
+
+export const ChangePasswordBody = z.object({
+  currentPassword: z.string().min(1),
+  newPassword:     z.string().min(8, 'Password must be at least 8 characters'),
+})
+
+export const SetPINBody = z.object({
+  pin: z.string().length(4).regex(/^\d{4}$/, 'PIN must be exactly 4 digits'),
+})
+
+export type UpdateMeInput       = z.infer<typeof UpdateMeBody>
+export type ChangePasswordInput = z.infer<typeof ChangePasswordBody>
+export type SetPINInput         = z.infer<typeof SetPINBody>
+
 export type LoginEmailInput = z.infer<typeof LoginEmailBody>
 export type LoginPINInput = z.infer<typeof LoginPINBody>
 export type RefreshInput = z.infer<typeof RefreshBody>

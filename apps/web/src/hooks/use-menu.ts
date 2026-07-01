@@ -4,11 +4,6 @@ import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api-client'
 import type { MenuCategory, MenuItem, PaginationMeta } from '@/lib/api-types'
 
-interface MenuItemsPage {
-  data: MenuItem[]
-  meta: { pagination: PaginationMeta }
-}
-
 const KEYS = {
   categories: ['menu-categories'] as const,
   items: (q?: Record<string, string | number | undefined>) => ['menu-items', q ?? {}] as const,
@@ -35,10 +30,11 @@ export function useMenuItems(query?: {
   params.set('limit', String(query?.limit ?? 200))  // fetch all for POS
   const qs = params.toString()
 
+  // The paginated() helper sends { success, data: items[], meta: { pagination } }.
+  // apiClient extracts json.data, so we receive MenuItem[] directly — no select needed.
   return useQuery({
     queryKey: KEYS.items(query as Record<string, string | number | undefined>),
-    queryFn: () => apiClient.get<MenuItemsPage>(`/api/v1/menu/items?${qs}`),
+    queryFn: () => apiClient.get<MenuItem[]>(`/api/v1/menu/items?${qs}`),
     staleTime: 60 * 1000,
-    select: (res) => res.data,  // unwrap .data from paginated response
   })
 }

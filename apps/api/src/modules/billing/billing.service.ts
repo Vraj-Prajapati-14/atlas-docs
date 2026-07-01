@@ -18,6 +18,7 @@ const BILL_INCLUDE = {
       orderNumber: true,
       type: true,
       guestCount: true,
+      customerId: true,
       table: { select: { id: true, name: true } },
       items: {
         select: {
@@ -200,31 +201,48 @@ export async function generateBill(tenantId: string, data: GenerateBillInput) {
 
   const applyServiceCharge = order.type !== 'TAKEAWAY' || serviceChargeOnTakeaway
 
-  const amounts = calculateBillAmounts(
-    order.items,
-    BigInt(data.discountInPaise),
-    serviceChargePercent,
-    applyServiceCharge,
-    isInterState,
-    roundOffBill,
-  )
-
   // Load customer info (if order has a linked customer)
   let customerName = data.customerName
   let customerPhone = data.customerPhone
   let customerGSTIN = data.customerGSTIN
+  let loyaltyCustomer: { loyaltyPointsBalance: number } | null = null
 
-  if (!customerName && order.customerId) {
+  if (order.customerId) {
     const customer = await prisma.customer.findUnique({
       where: { id: order.customerId },
-      select: { name: true, phone: true, gstin: true },
+      select: { name: true, phone: true, gstin: true, loyaltyPointsBalance: true },
     })
     if (customer) {
       customerName = customerName ?? customer.name
       customerPhone = customerPhone ?? customer.phone
       customerGSTIN = customerGSTIN ?? (customer.gstin ?? undefined)
+      loyaltyCustomer = { loyaltyPointsBalance: customer.loyaltyPointsBalance }
     }
   }
+
+  // Loyalty redemption — convert points to paise discount
+  let loyaltyDiscountInPaise = 0n
+  if (data.loyaltyPointsRedeem > 0 && order.customerId && loyaltyCustomer) {
+    if (data.loyaltyPointsRedeem > loyaltyCustomer.loyaltyPointsBalance) {
+      throw new BadRequestError(
+        `Customer only has ${loyaltyCustomer.loyaltyPointsBalance} loyalty points`,
+      )
+    }
+    // settings.loyaltyRedemptionRate = points per ₹1; so 1 point = 100/rate paise
+    const redemptionRate = settings?.loyaltyRedemptionRate ?? 100
+    loyaltyDiscountInPaise = BigInt(Math.floor((data.loyaltyPointsRedeem / redemptionRate) * 100))
+  }
+
+  const totalDiscountInPaise = BigInt(data.discountInPaise) + loyaltyDiscountInPaise
+
+  const amounts = calculateBillAmounts(
+    order.items,
+    totalDiscountInPaise,
+    serviceChargePercent,
+    applyServiceCharge,
+    isInterState,
+    roundOffBill,
+  )
 
   return prisma.$transaction(async (tx) => {
     // Generate bill number (monthly sequential)
@@ -245,7 +263,8 @@ export async function generateBill(tenantId: string, data: GenerateBillInput) {
         billNumber,
         subtotalInPaise: amounts.subtotalInPaise,
         discountInPaise: amounts.discountInPaise,
-        ...(data.discountReasonCode ? { discountReasonCode: data.discountReasonCode } : {}),
+        discountReasonCode: data.discountReasonCode ??
+          (loyaltyDiscountInPaise > 0n ? `LOYALTY:${data.loyaltyPointsRedeem}pts` : undefined),
         serviceChargePercent,
         serviceChargeInPaise: amounts.serviceChargeInPaise,
         cgstInPaise: amounts.cgstInPaise,
@@ -263,6 +282,24 @@ export async function generateBill(tenantId: string, data: GenerateBillInput) {
 
     // Advance order to BILLED
     await tx.order.update({ where: { id: order.id }, data: { status: 'BILLED' } })
+
+    // Deduct loyalty points if redeemed
+    if (data.loyaltyPointsRedeem > 0 && order.customerId) {
+      await tx.customer.update({
+        where: { id: order.customerId },
+        data: { loyaltyPointsBalance: { decrement: data.loyaltyPointsRedeem } },
+      })
+      await tx.loyaltyLedger.create({
+        data: {
+          tenantId,
+          customerId: order.customerId,
+          points: -data.loyaltyPointsRedeem,
+          type: 'REDEEM',
+          referenceId: bill.id,
+          note: `Redeemed on bill #${billNumber}`,
+        },
+      })
+    }
 
     return bill
   })
@@ -403,10 +440,42 @@ export async function recordPayment(tenantId: string, billId: string, data: Reco
 
     const updatedBill = await tx.bill.findUnique({ where: { id: billId }, include: BILL_INCLUDE })
     return updatedBill
-  }).then((updatedBill) => {
-    // After the transaction commits, send receipt if bill is now fully paid
+  }).then(async (updatedBill) => {
     if (updatedBill?.paymentStatus === 'PAID') {
+      // Send WhatsApp receipt
       sendBillReceipt(tenantId, billId).catch(() => undefined)
+
+      // Earn loyalty points
+      const customerId = updatedBill.order?.customerId
+      if (customerId) {
+        const loyaltySettings = await prisma.tenantSettings.findUnique({
+          where: { tenantId },
+          select: { loyaltyEnabled: true, loyaltyPointsPerRupee: true },
+        }).catch(() => null)
+
+        if (loyaltySettings?.loyaltyEnabled) {
+          const rupees = Math.floor(Number(updatedBill.grandTotalInPaise) / 100)
+          const pointsEarned = Math.floor(rupees * (loyaltySettings.loyaltyPointsPerRupee ?? 1))
+          if (pointsEarned > 0) {
+            await prisma.$transaction([
+              prisma.customer.update({
+                where: { id: customerId },
+                data: { loyaltyPointsBalance: { increment: pointsEarned } },
+              }),
+              prisma.loyaltyLedger.create({
+                data: {
+                  tenantId,
+                  customerId,
+                  points: pointsEarned,
+                  type: 'EARN',
+                  referenceId: billId,
+                  note: `Earned on bill #${updatedBill.billNumber}`,
+                },
+              }),
+            ]).catch(() => undefined) // non-blocking
+          }
+        }
+      }
     }
     return updatedBill
   })

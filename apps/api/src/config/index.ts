@@ -20,6 +20,7 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('30d'),
   BCRYPT_ROUNDS: z.coerce.number().int().min(8).max(14).default(10),
+  SUPER_ADMIN_JWT_SECRET: z.string().min(32).optional(),
 
   REDIS_URL: z.string().url().optional(),
 

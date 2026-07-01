@@ -24,7 +24,7 @@ const ORDER_DETAIL_INCLUDE = {
     orderBy: { createdAt: 'asc' as const },
   },
   table: { select: { id: true, name: true, capacity: true, floorId: true } },
-  customer: { select: { id: true, name: true, phone: true, email: true } },
+  customer: { select: { id: true, name: true, phone: true, email: true, loyaltyPointsBalance: true } },
   staff: { select: { id: true, name: true, role: true } },
   kots: {
     select: { id: true, kotNumber: true, status: true, createdAt: true },

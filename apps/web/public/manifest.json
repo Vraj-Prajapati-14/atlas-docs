@@ -1,0 +1,26 @@
+{
+  "name": "Atlas POS",
+  "short_name": "Atlas",
+  "description": "The AI-native restaurant operating system built for India.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0C0F18",
+  "theme_color": "#FF6B35",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "business"],
+  "lang": "en-IN"
+}

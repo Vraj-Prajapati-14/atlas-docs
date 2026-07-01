@@ -7,6 +7,7 @@ export const GenerateBillBody = z.object({
   orderId: z.string().min(1),
   discountInPaise: z.number().int().min(0).default(0),
   discountReasonCode: z.string().max(100).trim().optional(),
+  loyaltyPointsRedeem: z.number().int().min(0).default(0),
   // Customer snapshot for GST invoice
   customerName: z.string().max(100).trim().optional(),
   customerPhone: z

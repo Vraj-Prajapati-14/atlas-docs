@@ -3,12 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
-import type { CartItem, Order, OrderStatus, PaginationMeta } from '@/lib/api-types'
-
-interface OrdersPage {
-  data: Order[]
-  meta: { pagination: PaginationMeta }
-}
+import type { CartItem, Order, OrderStatus } from '@/lib/api-types'
 
 const KEYS = {
   orders: (q?: Record<string, string>) => ['orders', q ?? {}] as const,
@@ -28,10 +23,10 @@ export function useOrders(query?: {
   params.set('page', String(query?.page ?? 1))
   params.set('limit', String(query?.limit ?? 50))
 
+  // paginated() sends items[] directly in json.data; apiClient returns Order[].
   return useQuery({
     queryKey: KEYS.orders(query as Record<string, string>),
-    queryFn: () => apiClient.get<OrdersPage>(`/api/v1/orders?${params.toString()}`),
-    select: (res) => res,
+    queryFn: () => apiClient.get<Order[]>(`/api/v1/orders?${params.toString()}`),
     refetchInterval: 20 * 1000,
   })
 }
@@ -41,12 +36,10 @@ export function useActiveTableOrder(tableId: string | undefined) {
     queryKey: KEYS.tableOrders(tableId ?? ''),
     queryFn: async () => {
       const params = new URLSearchParams({ tableId: tableId!, limit: '1' })
-      // Fetch any non-terminal order on this table
-      const res = await apiClient.get<OrdersPage>(`/api/v1/orders?${params.toString()}`)
-      const active = res.data.find((o) =>
+      const orders = await apiClient.get<Order[]>(`/api/v1/orders?${params.toString()}`)
+      return orders.find((o) =>
         ['DRAFT', 'CONFIRMED', 'IN_PROGRESS', 'READY'].includes(o.status),
-      )
-      return active ?? null
+      ) ?? null
     },
     enabled: !!tableId,
     staleTime: 10 * 1000,
@@ -180,6 +173,23 @@ export function useCancelOrder() {
     },
     onError(err: Error) {
       toast.error(err.message)
+    },
+  })
+}
+
+export function useTransferOrder() {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ orderId, toTableId }: { orderId: string; toTableId: string }) =>
+      apiClient.post<Order>(`/api/v1/orders/${orderId}/transfer`, { toTableId }),
+    onSuccess(order) {
+      qc.invalidateQueries({ queryKey: ['orders'] })
+      qc.invalidateQueries({ queryKey: ['tables'] })
+      toast.success(`Order moved to table ${order.table?.name ?? ''}.`)
+    },
+    onError(err: Error) {
+      toast.error(err.message ?? 'Transfer failed.')
     },
   })
 }

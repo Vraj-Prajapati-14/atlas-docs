@@ -41,6 +41,25 @@ export function useTable(id: string) {
   })
 }
 
+export function useRefreshTableQR() {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: (tableId: string) =>
+      apiClient.post<Table>(`/api/v1/tables/${tableId}/qr`, {}),
+    onSuccess(updated) {
+      qc.setQueriesData<Table[]>({ queryKey: ['tables'] }, (prev) =>
+        prev?.map((t) => (t.id === updated.id ? updated : t)),
+      )
+      qc.setQueryData(KEYS.table(updated.id), updated)
+      toast.success('QR code refreshed.')
+    },
+    onError(err: Error) {
+      toast.error(err.message)
+    },
+  })
+}
+
 export function useUpdateTableStatus() {
   const qc = useQueryClient()
 

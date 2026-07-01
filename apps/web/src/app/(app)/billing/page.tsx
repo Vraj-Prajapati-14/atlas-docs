@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { Receipt, CreditCard, X, ChevronRight, Trash2 } from 'lucide-react'
+import { Receipt, CreditCard, X, ChevronRight, Trash2, Printer, Star, Lock } from 'lucide-react'
 import { useOrders } from '@/hooks/use-orders'
-import { useBills, useBill, useGenerateBill, useRecordPayment, useVoidBill } from '@/hooks/use-billing'
+import { useBills, useBill, useGenerateBill, useRecordPayment, useVoidBill, useVerifyManagerPIN } from '@/hooks/use-billing'
+import { useSettings } from '@/hooks/use-settings'
 import { useAuthStore } from '@/lib/auth-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,7 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
-import type { Bill, PaymentMethod } from '@/lib/api-types'
+import type { Bill, Order, PaymentMethod } from '@/lib/api-types'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -40,29 +41,34 @@ export default function BillingPage() {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const [selectedBillId, setSelectedBillId] = useState<string | null>(null)
   const [tab, setTab] = useState<'to-bill' | 'bills'>('to-bill')
+  const [generateModalOrder, setGenerateModalOrder] = useState<Order | null>(null)
 
   // SERVED orders (ready to bill) + BILLED orders (already have a bill)
   const { data: ordersData } = useOrders({ status: 'SERVED', limit: 50 })
   const { data: billedData }  = useOrders({ status: 'BILLED', limit: 50 })
   const { data: billsData }   = useBills()
+  const { data: settingsData } = useSettings()
 
-  const servedOrders  = ordersData?.data ?? []
-  const billedOrders  = billedData?.data ?? []
-  const bills         = billsData?.data ?? []
+  const servedOrders  = ordersData ?? []
+  const billedOrders  = billedData ?? []
+  const bills         = billsData ?? []
 
   const generateBill  = useGenerateBill()
 
-  const handleSelectOrder = async (orderId: string) => {
-    setSelectedOrderId(orderId)
+  const discountThreshold = settingsData?.settings?.discountApprovalThreshold ?? 0
+  const loyaltyEnabled    = settingsData?.settings?.loyaltyEnabled ?? false
+  const redemptionRate    = settingsData?.settings?.loyaltyRedemptionRate ?? 100
+
+  const handleSelectOrder = (order: Order) => {
+    setSelectedOrderId(order.id)
     setSelectedBillId(null)
     // Check if a bill already exists for this order in our bills list
-    const existing = bills.find((b) => b.orderId === orderId)
+    const existing = bills.find((b) => b.orderId === order.id)
     if (existing) {
       setSelectedBillId(existing.id)
     } else {
-      // Auto-generate bill
-      const bill = await generateBill.mutateAsync({ orderId })
-      setSelectedBillId(bill.id)
+      // Open modal to configure discount/loyalty before generating
+      setGenerateModalOrder(order)
     }
   }
 
@@ -99,7 +105,7 @@ export default function BillingPage() {
                     badge={<Badge variant="warning">Served</Badge>}
                     active={selectedOrderId === o.id}
                     loading={generateBill.isPending && selectedOrderId === o.id}
-                    onClick={() => handleSelectOrder(o.id)}
+                    onClick={() => handleSelectOrder(o)}
                   />
                 ))}
                 {billedOrders.map((o) => {
@@ -147,6 +153,23 @@ export default function BillingPage() {
           </div>
         )}
       </div>
+
+      {/* Generate bill modal — discount + loyalty before bill creation */}
+      {generateModalOrder && (
+        <GenerateBillModal
+          order={generateModalOrder}
+          discountThreshold={discountThreshold}
+          loyaltyEnabled={loyaltyEnabled}
+          redemptionRate={redemptionRate}
+          onClose={() => setGenerateModalOrder(null)}
+          onGenerate={async (payload) => {
+            const bill = await generateBill.mutateAsync({ orderId: generateModalOrder.id, ...payload })
+            setSelectedBillId(bill.id)
+            setGenerateModalOrder(null)
+          }}
+          isPending={generateBill.isPending}
+        />
+      )}
     </div>
   )
 }
@@ -157,6 +180,7 @@ function BillDetail({ billId }: { billId: string }) {
   const { data: bill, isLoading } = useBill(billId)
   const [showPayment, setShowPayment] = useState(false)
   const [showVoidConfirm, setShowVoidConfirm] = useState(false)
+  const [showPrint, setShowPrint] = useState(false)
   const voidBill = useVoidBill()
   const user = useAuthStore((s) => s.user)
   const canVoid = user?.role === 'OWNER' || user?.role === 'MANAGER'
@@ -182,7 +206,12 @@ function BillDetail({ billId }: { billId: string }) {
             {bill.order.guestCount ? ` · ${bill.order.guestCount} covers` : ''}
           </p>
         </div>
-        <Badge variant={ps.variant}>{ps.label}</Badge>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={() => setShowPrint(true)}>
+            <Printer size={13} /> Print
+          </Button>
+          <Badge variant={ps.variant}>{ps.label}</Badge>
+        </div>
       </div>
 
       {/* Line items */}
@@ -285,6 +314,8 @@ function BillDetail({ billId }: { billId: string }) {
       )}
 
       {/* Void — OWNER / MANAGER only, not on already-voided bills */}
+      {showPrint && <PrintBillModal bill={bill} onClose={() => setShowPrint(false)} />}
+
       {canVoid && bill.paymentStatus !== 'REFUNDED' && (
         showVoidConfirm ? (
           <div className="rounded-xl border border-danger/30 bg-danger/5 p-4 space-y-3">
@@ -311,6 +342,307 @@ function BillDetail({ billId }: { billId: string }) {
           </Button>
         )
       )}
+    </div>
+  )
+}
+
+// ─── Generate Bill Modal ──────────────────────────────────────────────────────
+
+interface GenerateBillPayload {
+  discountInPaise?: number
+  discountReasonCode?: string
+  loyaltyPointsRedeem?: number
+  customerName?: string
+  customerPhone?: string
+}
+
+function GenerateBillModal({
+  order,
+  discountThreshold,
+  loyaltyEnabled,
+  redemptionRate,
+  onClose,
+  onGenerate,
+  isPending,
+}: {
+  order: Order
+  discountThreshold: number
+  loyaltyEnabled: boolean
+  redemptionRate: number
+  onClose: () => void
+  onGenerate: (payload: GenerateBillPayload) => Promise<void>
+  isPending: boolean
+}) {
+  const [discountRupees, setDiscountRupees] = useState('')
+  const [discountReason, setDiscountReason] = useState('')
+  const [loyaltyRedeem, setLoyaltyRedeem] = useState('')
+  const [pinEntry, setPinEntry] = useState('')
+  const [pinVerified, setPinVerified] = useState(false)
+  const [pinError, setPinError] = useState('')
+  const [verifyingPin, setVerifyingPin] = useState(false)
+  const verifyPIN = useVerifyManagerPIN()
+
+  const subtotal       = order.subtotalInPaise
+  const loyaltyBalance = order.customer?.loyaltyPointsBalance ?? 0
+  const discountPaise  = Math.round((parseFloat(discountRupees) || 0) * 100)
+  const discountPct    = subtotal > 0 ? (discountPaise / subtotal) * 100 : 0
+  const loyaltyPoints  = Math.min(parseInt(loyaltyRedeem) || 0, loyaltyBalance)
+  const loyaltyDiscount = Math.floor((loyaltyPoints / redemptionRate) * 100)
+
+  const needsApproval  = discountThreshold > 0 && discountPct > discountThreshold && !pinVerified
+
+  async function handleVerifyPIN() {
+    if (pinEntry.length !== 4) return
+    setVerifyingPin(true)
+    setPinError('')
+    try {
+      const res = await verifyPIN.mutateAsync(pinEntry)
+      if (res.valid) {
+        setPinVerified(true)
+        setPinEntry('')
+      } else {
+        setPinError('Invalid PIN. Ask a manager or owner.')
+      }
+    } finally {
+      setVerifyingPin(false)
+    }
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (needsApproval) return
+    onGenerate({
+      discountInPaise: discountPaise > 0 ? discountPaise : undefined,
+      discountReasonCode: discountReason || undefined,
+      loyaltyPointsRedeem: loyaltyPoints > 0 ? loyaltyPoints : undefined,
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <form onSubmit={handleSubmit} className="bg-background-card border border-border rounded-xl w-full max-w-sm shadow-2xl space-y-4 p-5">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-bold">Generate Bill</p>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="rounded-lg bg-background px-4 py-2.5">
+          <p className="text-xs text-muted-foreground">
+            {order.table?.name ?? `Order #${order.orderNumber}`}
+            {order.customer ? ` · ${order.customer.name}` : ''}
+          </p>
+          <p className="text-sm font-bold text-foreground mt-0.5">{paise(subtotal)} (est. subtotal)</p>
+        </div>
+
+        {/* Discount */}
+        <div className="space-y-1.5">
+          <Label>Discount (₹) {discountThreshold > 0 && <span className="text-[10px] text-muted-foreground ml-1">PIN required above {discountThreshold}%</span>}</Label>
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            max={(subtotal / 100).toFixed(2)}
+            placeholder="0.00"
+            value={discountRupees}
+            onChange={(e) => { setDiscountRupees(e.target.value); setPinVerified(false) }}
+          />
+          {discountPaise > 0 && (
+            <Input
+              type="text"
+              placeholder="Discount reason (optional)"
+              value={discountReason}
+              onChange={(e) => setDiscountReason(e.target.value)}
+            />
+          )}
+        </div>
+
+        {/* Manager PIN gate */}
+        {discountPct > discountThreshold && discountThreshold > 0 && !pinVerified && (
+          <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 space-y-2">
+            <p className="text-xs font-semibold text-warning flex items-center gap-1.5">
+              <Lock size={12} /> Manager approval required ({discountPct.toFixed(1)}% discount)
+            </p>
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                placeholder="4-digit PIN"
+                value={pinEntry}
+                onChange={(e) => { setPinEntry(e.target.value.replace(/\D/g, '')); setPinError('') }}
+                className="flex-1 font-mono tracking-widest"
+              />
+              <Button type="button" size="sm" disabled={pinEntry.length !== 4 || verifyingPin} onClick={handleVerifyPIN}>
+                {verifyingPin ? <Spinner size="xs" /> : 'Verify'}
+              </Button>
+            </div>
+            {pinError && <p className="text-[11px] text-danger">{pinError}</p>}
+          </div>
+        )}
+        {pinVerified && (
+          <p className="text-xs text-success flex items-center gap-1"><span>✓</span> Manager approved</p>
+        )}
+
+        {/* Loyalty redeem */}
+        {loyaltyEnabled && loyaltyBalance > 0 && (
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5">
+              <Star size={11} className="text-warning fill-warning" />
+              Redeem Loyalty Points
+              <span className="text-[10px] text-muted-foreground font-normal ml-1">({loyaltyBalance} available)</span>
+            </Label>
+            <Input
+              type="number"
+              min="0"
+              max={loyaltyBalance}
+              placeholder="0"
+              value={loyaltyRedeem}
+              onChange={(e) => setLoyaltyRedeem(e.target.value)}
+            />
+            {loyaltyPoints > 0 && (
+              <p className="text-[11px] text-success">
+                Redeem {loyaltyPoints} pts = {paise(loyaltyDiscount)} discount
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-1">
+          <Button type="button" variant="ghost" className="flex-1" onClick={onClose}>Cancel</Button>
+          <Button type="submit" className="flex-1" disabled={isPending || needsApproval}>
+            {isPending ? <Spinner size="sm" /> : 'Generate Bill'}
+          </Button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+// ─── Print Bill Modal ─────────────────────────────────────────────────────────
+
+function PrintBillModal({ bill, onClose }: { bill: Bill; onClose: () => void }) {
+  function handlePrint() {
+    const printArea = document.getElementById('atlas-print-receipt')
+    if (!printArea) return
+    const win = window.open('', '_blank', 'width=320,height=600')
+    if (!win) return
+    win.document.write(`<!DOCTYPE html><html><head><title>Bill #${bill.billNumber}</title>
+<style>
+  @page { size: 80mm auto; margin: 0; }
+  body { font-family: 'Courier New', monospace; font-size: 11px; color: #000; background: #fff; padding: 8px; width: 80mm; }
+  h1 { font-size: 14px; text-align: center; margin: 0 0 4px; }
+  .center { text-align: center; }
+  .divider { border: none; border-top: 1px dashed #000; margin: 6px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  td { padding: 1px 0; }
+  .right { text-align: right; }
+  .bold { font-weight: bold; }
+  .total-row td { padding-top: 4px; }
+  .grand td { font-size: 13px; border-top: 1px solid #000; padding-top: 4px; font-weight: bold; }
+</style></head><body>`)
+    win.document.write(printArea.innerHTML)
+    win.document.write('</body></html>')
+    win.document.close()
+    win.focus()
+    setTimeout(() => { win.print(); win.close() }, 200)
+  }
+
+  const paidAmount = bill.payments.reduce((s, p) => s + p.amountInPaise, 0)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="bg-white text-black rounded-xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col w-[340px]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+          <span className="font-bold text-sm text-gray-800">Print Preview</span>
+          <button type="button" onClick={onClose} className="text-gray-500 hover:text-gray-800"><X size={15} /></button>
+        </div>
+
+        <div id="atlas-print-receipt" className="flex-1 overflow-y-auto p-4 font-mono text-[11px] leading-tight bg-white text-black">
+          <h1 className="text-[14px] font-bold text-center mb-1">ATLAS POS</h1>
+          <p className="text-center text-[10px] mb-1">Tax Invoice</p>
+          <hr className="border-dashed border-gray-400 my-2" />
+          <table className="w-full">
+            <tbody>
+              <tr><td>Bill No:</td><td className="text-right font-bold">#{bill.billNumber}</td></tr>
+              <tr><td>Order:</td><td className="text-right">#{bill.order?.orderNumber}</td></tr>
+              {bill.order?.table && <tr><td>Table:</td><td className="text-right">{bill.order.table.name}</td></tr>}
+              <tr><td>Date:</td><td className="text-right">{new Date().toLocaleDateString('en-IN')}</td></tr>
+              <tr><td>Time:</td><td className="text-right">{new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</td></tr>
+            </tbody>
+          </table>
+          <hr className="border-dashed border-gray-400 my-2" />
+
+          <table className="w-full">
+            <thead>
+              <tr className="font-bold">
+                <td>Item</td><td className="text-right">Qty</td><td className="text-right">Amt</td>
+              </tr>
+            </thead>
+            <tbody>
+              {bill.order?.items?.map((item) => (
+                <tr key={item.id}>
+                  <td className="max-w-[140px] break-words pr-1">
+                    {item.menuItemName}{item.variantName ? ` (${item.variantName})` : ''}
+                  </td>
+                  <td className="text-right">{item.quantity}</td>
+                  <td className="text-right whitespace-nowrap">₹{(item.totalPriceInPaise / 100).toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <hr className="border-dashed border-gray-400 my-2" />
+
+          <table className="w-full">
+            <tbody>
+              <tr><td>Subtotal</td><td className="text-right">₹{(bill.subtotalInPaise / 100).toFixed(2)}</td></tr>
+              {bill.discountInPaise > 0 && <tr><td>Discount</td><td className="text-right">-₹{(bill.discountInPaise / 100).toFixed(2)}</td></tr>}
+              {bill.serviceChargeInPaise > 0 && <tr><td>Service Charge</td><td className="text-right">₹{(bill.serviceChargeInPaise / 100).toFixed(2)}</td></tr>}
+              {bill.cgstInPaise > 0 && <tr><td>CGST</td><td className="text-right">₹{(bill.cgstInPaise / 100).toFixed(2)}</td></tr>}
+              {bill.sgstInPaise > 0 && <tr><td>SGST</td><td className="text-right">₹{(bill.sgstInPaise / 100).toFixed(2)}</td></tr>}
+              {bill.igstInPaise > 0 && <tr><td>IGST</td><td className="text-right">₹{(bill.igstInPaise / 100).toFixed(2)}</td></tr>}
+              {bill.roundOffInPaise !== 0 && <tr><td>Round Off</td><td className="text-right">₹{(bill.roundOffInPaise / 100).toFixed(2)}</td></tr>}
+            </tbody>
+          </table>
+          <hr className="border-solid border-gray-800 my-1" />
+          <table className="w-full">
+            <tbody>
+              <tr className="font-bold text-[13px]">
+                <td>GRAND TOTAL</td>
+                <td className="text-right">₹{(bill.grandTotalInPaise / 100).toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          {bill.payments.length > 0 && (
+            <>
+              <hr className="border-dashed border-gray-400 my-2" />
+              <table className="w-full">
+                <tbody>
+                  {bill.payments.map(p => (
+                    <tr key={p.id}><td>{p.method}</td><td className="text-right">₹{(p.amountInPaise / 100).toFixed(2)}</td></tr>
+                  ))}
+                  {paidAmount >= bill.grandTotalInPaise && (
+                    <tr className="font-bold"><td>CHANGE</td><td className="text-right">₹{((paidAmount - bill.grandTotalInPaise) / 100).toFixed(2)}</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </>
+          )}
+
+          <hr className="border-dashed border-gray-400 my-2" />
+          <p className="text-center text-[10px]">Thank you for dining with us!</p>
+          <p className="text-center text-[10px] mt-1">Powered by Atlas POS</p>
+        </div>
+
+        <div className="flex gap-2 px-4 py-3 border-t border-gray-200">
+          <button type="button" onClick={onClose} className="flex-1 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50">Close</button>
+          <button type="button" onClick={handlePrint} className="flex-1 py-2 rounded-lg bg-orange-500 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-orange-600">
+            <Printer size={14} /> Print Bill
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
