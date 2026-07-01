@@ -132,6 +132,12 @@ enum TenantPlanStatus {
   SUSPENDED
 }
 
+enum PlanType {
+  MONTHLY
+  YEARLY
+  LIFETIME
+}
+
 enum NotificationChannel {
   WHATSAPP
   SMS
@@ -180,6 +186,9 @@ model Tenant {
   email           String?          @unique
   website         String?
 
+  // Plan
+  planType        PlanType         @default(MONTHLY)
+
   // Address
   addressLine1    String
   addressLine2    String?
@@ -199,20 +208,22 @@ model Tenant {
   deletedAt       DateTime?
 
   // Relations
-  outlets         Outlet[]
-  users           User[]
-  menuCategories  MenuCategory[]
-  menuItems       MenuItem[]
-  customers       Customer[]
-  orders          Order[]
-  bills           Bill[]
-  inventoryItems  InventoryItem[]
-  suppliers       Supplier[]
-  notifications   Notification[]
-  auditLogs       AuditLog[]
-  settings        TenantSettings?
-  aggregatorCreds AggregatorCredential[]
-  onboardingSteps TenantOnboardingStep?
+  outlets              Outlet[]
+  users                User[]
+  menuCategories       MenuCategory[]
+  menuItems            MenuItem[]
+  customers            Customer[]
+  orders               Order[]
+  bills                Bill[]
+  inventoryItems       InventoryItem[]
+  suppliers            Supplier[]
+  notifications        Notification[]
+  auditLogs            AuditLog[]
+  settings             TenantSettings?
+  aggregatorCreds      AggregatorCredential[]
+  onboardingSteps      TenantOnboardingStep?
+  subscriptionPayments SubscriptionPayment[]
+  supportTickets       SupportTicket[]
 
   @@index([slug])
   @@index([phone])
@@ -982,10 +993,13 @@ model SuperAdmin {
   name         String
   email        String    @unique
   passwordHash String
+  role         String    @default("OWNER")
   isActive     Boolean   @default(true)
   lastLoginAt  DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+
+  auditLogs    AdminAuditLog[]
 
   @@map("super_admins")
 }
@@ -1008,4 +1022,148 @@ model TenantOnboardingStep {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("tenant_onboarding_steps")
+}
+
+// ─────────────────────────────────────────────
+// PHASE 11 — SUPER-ADMIN PANEL
+// ─────────────────────────────────────────────
+
+model SubscriptionPayment {
+  id            String   @id @default(cuid())
+  tenantId      String
+  adminId       String
+  amountPaise   BigInt
+  planType      PlanType
+  paymentMethod String
+  paidAt        DateTime
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([paidAt])
+  @@map("subscription_payments")
+}
+
+model PlatformCost {
+  id          String   @id @default(cuid())
+  month       Int      // YYYYMM e.g. 202506
+  category    String   // "SERVER", "SUPPORT", "MARKETING", "MISC"
+  description String
+  amountPaise BigInt
+  adminId     String
+  createdAt   DateTime @default(now())
+
+  @@index([month])
+  @@map("platform_costs")
+}
+
+model SupportTicket {
+  id           String    @id @default(cuid())
+  tenantId     String
+  raisedById   String
+  raisedByType String    @default("OWNER") // "OWNER" | "STAFF"
+  category     String    // "BILLING", "TECHNICAL", "ONBOARDING", "FEATURE_REQUEST", "OTHER"
+  priority     String    @default("MEDIUM") // "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+  status       String    @default("OPEN")   // "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED"
+  title        String
+  body         String
+  assignedTo   String?   // SuperAdmin id
+  resolvedAt   DateTime?
+  closedAt     DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  comments TicketComment[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+  @@map("support_tickets")
+}
+
+model TicketComment {
+  id         String    @id @default(cuid())
+  ticketId   String
+  authorId   String
+  authorType String    // "ADMIN" | "TENANT"
+  authorName String
+  body       String
+  createdAt  DateTime  @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("ticket_comments")
+}
+
+model Broadcast {
+  id          String    @id @default(cuid())
+  adminId     String
+  adminName   String
+  type        String    // "INFO" | "WARNING" | "MAINTENANCE" | "FEATURE"
+  title       String
+  body        String
+  targetType  String    @default("ALL") // "ALL" | "ACTIVE" | "PENDING" | "SPECIFIC"
+  targetValue String?   // comma-separated tenant IDs for SPECIFIC
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  dismissals BroadcastDismissal[]
+
+  @@index([createdAt])
+  @@map("broadcasts")
+}
+
+model BroadcastDismissal {
+  broadcastId String
+  tenantId    String
+  dismissedAt DateTime @default(now())
+
+  broadcast Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+
+  @@id([broadcastId, tenantId])
+  @@map("broadcast_dismissals")
+}
+
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  adminId    String
+  adminName  String
+  action     String   // "LOGIN", "TENANT_ACTIVATE", "TENANT_SUSPEND", "BROADCAST_SENT", etc.
+  targetType String?  // "Tenant", "SuperAdmin", "Broadcast", etc.
+  targetId   String?
+  targetName String?
+  meta       Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  admin SuperAdmin @relation(fields: [adminId], references: [id])
+
+  @@index([adminId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("admin_audit_logs")
+}
+
+model PlatformSettings {
+  id                 String   @id @default(cuid())
+  monthlyPricePaise  BigInt   @default(149900)
+  yearlyPricePaise   BigInt   @default(1499900)
+  lifetimePricePaise BigInt   @default(3999900)
+  gstPercent         Int      @default(18)
+  trialDays          Int      @default(14)
+  maxOutlets         Int      @default(3)
+  maxStaff           Int      @default(20)
+  kdsEnabled         Boolean  @default(true)
+  inventoryEnabled   Boolean  @default(true)
+  supportEmail       String   @default("support@atlaspos.in")
+  supportPhone       String   @default("1800-000-0000")
+  updatedAt          DateTime @updatedAt
+  updatedBy          String?
+
+  @@map("platform_settings")
 }

@@ -3,7 +3,7 @@
  * Run: pnpm --filter @atlas/db seed
  */
 
-import { PrismaClient, RestaurantType, UserRole, FoodType, InventoryUnit } from '@prisma/client'
+import { PrismaClient, RestaurantType, UserRole, FoodType, InventoryUnit, TenantPlanStatus } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
@@ -19,11 +19,12 @@ async function main(): Promise<void> {
   // Tenant
   const tenant = await prisma.tenant.upsert({
     where: { slug: 'demo-kitchen' },
-    update: {},
+    update: { planStatus: TenantPlanStatus.ACTIVE },
     create: {
       name: 'Demo Kitchen',
       slug: 'demo-kitchen',
       type: RestaurantType.CASUAL_DINING,
+      planStatus: TenantPlanStatus.ACTIVE,
       phone: '9876543210',
       email: 'owner@demokitchen.in',
       gstin: '29ABCDE1234F1Z5',
@@ -36,6 +37,19 @@ async function main(): Promise<void> {
   })
 
   console.log(`Tenant: ${tenant.name} (${tenant.id})`)
+
+  // Required Phase 10 records
+  await prisma.tenantSettings.upsert({
+    where: { tenantId: tenant.id },
+    update: {},
+    create: { tenantId: tenant.id },
+  })
+
+  await prisma.tenantOnboardingStep.upsert({
+    where: { tenantId: tenant.id },
+    update: {},
+    create: { tenantId: tenant.id },
+  })
 
   // Outlet
   const outlet = await prisma.outlet.upsert({
