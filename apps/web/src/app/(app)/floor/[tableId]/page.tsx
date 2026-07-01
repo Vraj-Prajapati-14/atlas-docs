@@ -458,6 +458,13 @@ function TransferTableModal({
   )
 }
 
+const FOOD_BG: Record<string, string> = {
+  VEG:     'linear-gradient(135deg, #064e3b 0%, #065f46 100%)',
+  NON_VEG: 'linear-gradient(135deg, #450a0a 0%, #991b1b 100%)',
+  EGG:     'linear-gradient(135deg, #451a03 0%, #92400e 100%)',
+  VEGAN:   'linear-gradient(135deg, #1e1b4b 0%, #4338ca 100%)',
+}
+
 function MenuItemCard({ item, onAdd }: { item: MenuItem; onAdd: (item: MenuItem, variant?: MenuItemVariant) => void }) {
   const defaultVariant = item.variants.find((v) => v.isDefault) ?? item.variants[0]
   const hasVariants = item.variants.length > 0
@@ -468,31 +475,54 @@ function MenuItemCard({ item, onAdd }: { item: MenuItem; onAdd: (item: MenuItem,
       type="button"
       onClick={() => onAdd(item, defaultVariant)}
       className={cn(
-        'flex flex-col items-start p-3 rounded-lg text-left',
+        'flex flex-col items-start rounded-xl text-left overflow-hidden',
         'border border-border bg-background-card',
-        'hover:border-primary-500/60 hover:bg-background-hover',
+        'hover:border-primary-500/50 hover:shadow-md hover:shadow-black/10',
         'active:scale-[0.97] transition-all duration-100',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
       )}
     >
-      <div className="flex items-start justify-between w-full gap-1 mb-1.5">
-        <FoodTypeDot type={item.foodType} />
+      {/* Image / food-type placeholder */}
+      <div className="relative w-full h-[80px] shrink-0 overflow-hidden">
+        {item.imageUrl ? (
+          <img
+            src={item.imageUrl}
+            alt={item.name}
+            loading="lazy"
+            decoding="async"
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div
+            className="w-full h-full"
+            style={{ background: FOOD_BG[item.foodType] ?? FOOD_BG.VEG }}
+          />
+        )}
+        <div className="absolute bottom-1.5 left-1.5">
+          <FoodTypeDot type={item.foodType} />
+        </div>
         {item.isFeatured && (
-          <span className="text-[9px] font-bold text-warning uppercase tracking-wider">⭐</span>
+          <div className="absolute top-1.5 right-1.5">
+            <span className="text-[9px] font-bold text-warning bg-black/55 rounded-full px-1.5 py-0.5">⭐</span>
+          </div>
         )}
       </div>
-      <p className="text-xs font-semibold text-foreground line-clamp-2 leading-tight mb-1">
-        {item.name}
-      </p>
-      <div className="flex items-center justify-between w-full mt-auto pt-1">
-        <span className="text-xs font-bold text-primary-500 tabular-nums">
-          {paise(displayPrice)}
-        </span>
-        {hasVariants && (
-          <span className="text-[9px] text-muted-foreground bg-white/5 px-1.5 py-0.5 rounded">
-            +{item.variants.length - 1} sizes
+
+      {/* Text */}
+      <div className="flex flex-col flex-1 p-2.5 w-full">
+        <p className="text-xs font-semibold text-foreground line-clamp-2 leading-tight mb-auto">
+          {item.name}
+        </p>
+        <div className="flex items-center justify-between w-full mt-1.5">
+          <span className="text-xs font-bold text-primary-500 tabular-nums">
+            {paise(displayPrice)}
           </span>
-        )}
+          {hasVariants && (
+            <span className="text-[9px] text-muted-foreground bg-white/5 px-1.5 py-0.5 rounded">
+              +{item.variants.length - 1}
+            </span>
+          )}
+        </div>
       </div>
     </button>
   )

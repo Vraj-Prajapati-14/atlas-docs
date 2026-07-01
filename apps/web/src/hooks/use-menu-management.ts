@@ -50,6 +50,7 @@ export interface MenuItemPayload {
   categoryId: string
   name: string
   description?: string
+  imageUrl?: string | null
   priceInPaise: number
   gstRate: 0 | 5 | 12 | 18 | 28
   isGSTInclusive: boolean
