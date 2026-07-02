@@ -1,6 +1,6 @@
 'use client'
 
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
@@ -80,13 +80,17 @@ export function useLoginPIN() {
 export function useLogout() {
   const { clearAuth, getRefreshToken } = useAuthStore()
   const router = useRouter()
+  const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: () =>
       apiClient.post('/api/v1/auth/logout', { refreshToken: getRefreshToken() }),
     onSettled() {
+      // Clear query cache BEFORE clearing auth so no in-flight refetches
+      // trigger 401 errors and show unexpected toasts.
+      queryClient.cancelQueries()
+      queryClient.clear()
       clearAuth()
-      toast.info('Logged out.')
       router.replace('/login')
     },
   })

@@ -88,6 +88,10 @@ async function request<T>(
         localStorage.removeItem('atlas_refresh')
         document.cookie = 'atlas_auth=; path=/; max-age=0; SameSite=Lax'
         window.location.href = '/login'
+        // Return a never-resolving promise so no error callbacks fire while the
+        // page is navigating away. Without this the throw below would reach any
+        // onError handlers and show unexpected toasts.
+        return new Promise<never>(() => {})
       }
     }
     throw new ApiError(json.error.code, json.error.message, response.status)
