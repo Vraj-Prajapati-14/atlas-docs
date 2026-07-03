@@ -161,6 +161,39 @@ enum AggregatorOrderStatus {
   CANCELLED
 }
 
+enum StaffNotifSenderType {
+  SUPER_ADMIN
+  OWNER
+  MANAGER
+  SYSTEM
+}
+
+enum StaffNotifType {
+  ANNOUNCEMENT
+  LOW_STOCK
+  ORDER_ALERT
+  KOT_ALERT
+  BILL_VOID
+  SHIFT_NOTE
+  SUBSCRIPTION_EXPIRY
+  PAYMENT_ALERT
+  AGGREGATOR_ORDER
+  CUSTOM
+}
+
+enum StaffNotifPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum StaffNotifTargetType {
+  ALL_STAFF
+  ROLE
+  SPECIFIC_USER
+}
+
 // ─────────────────────────────────────────────
 // TENANT (Restaurant / Business)
 // ─────────────────────────────────────────────
@@ -174,6 +207,8 @@ model Tenant {
   planExpiresAt   DateTime?
   planStatus      TenantPlanStatus  @default(PENDING_PAYMENT)
   logoUrl         String?
+  coverImageUrl   String?
+  cuisineType     String?           // e.g. "North Indian, Chinese, Multi-Cuisine"
   onboardingCompletedAt DateTime?
 
   // Legal
@@ -224,6 +259,7 @@ model Tenant {
   onboardingSteps      TenantOnboardingStep?
   subscriptionPayments SubscriptionPayment[]
   supportTickets       SupportTicket[]
+  staffNotifications   StaffNotification[]
 
   @@index([slug])
   @@index([phone])
@@ -285,12 +321,13 @@ model User {
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
 
-  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  sessions       UserSession[]
-  orders         Order[]        @relation("OrderStaff")
-  billsVoided    Bill[]         @relation("BillVoidedBy")
-  auditLogs      AuditLog[]
-  notifications  Notification[]
+  tenant                    Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sessions                  UserSession[]
+  orders                    Order[]                 @relation("OrderStaff")
+  billsVoided               Bill[]                  @relation("BillVoidedBy")
+  auditLogs                 AuditLog[]
+  notifications             Notification[]
+  staffNotificationReads    StaffNotificationRead[]
 
   @@unique([tenantId, phone])
   @@unique([tenantId, email])
@@ -1011,12 +1048,22 @@ model SuperAdmin {
 model TenantOnboardingStep {
   id                    String    @id @default(cuid())
   tenantId              String    @unique
-  restaurantProfileDone Boolean   @default(false)
-  outletDone            Boolean   @default(false)
+
+  // Core wizard steps
+  brandingDone          Boolean   @default(false)   // logo, name, type, cuisine
+  restaurantProfileDone Boolean   @default(false)   // GSTIN, FSSAI, address
   menuDone              Boolean   @default(false)
   tablesDone            Boolean   @default(false)
   staffDone             Boolean   @default(false)
-  firstOrderDone        Boolean   @default(false)
+  paymentSetupDone      Boolean   @default(false)   // payment methods + printer IPs
+  firstOrderDone        Boolean   @default(false)   // auto-marked on first order
+
+  // Legacy (kept for backward compat)
+  outletDone            Boolean   @default(false)
+
+  // Tracking
+  skippedSteps          Json?                       // String[] of step keys skipped
+  teamAssistedMode      Boolean   @default(false)   // Atlas team doing the setup
   completedAt           DateTime?
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -1166,4 +1213,43 @@ model PlatformSettings {
   updatedBy          String?
 
   @@map("platform_settings")
+}
+
+// ─── Staff Notifications ──────────────────────────────────────────────────────
+
+model StaffNotification {
+  id            String                   @id @default(cuid())
+  tenantId      String
+  senderId      String?
+  senderType    StaffNotifSenderType
+  senderName    String
+  type          StaffNotifType           @default(ANNOUNCEMENT)
+  title         String
+  body          String
+  priority      StaffNotifPriority       @default(NORMAL)
+  targetType    StaffNotifTargetType     @default(ALL_STAFF)
+  targetRoles   Json?                    // UserRole[] when targetType = ROLE
+  targetUserIds Json?                    // String[]   when targetType = SPECIFIC_USER
+  expiresAt     DateTime?
+  createdAt     DateTime                 @default(now())
+
+  tenant        Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reads         StaffNotificationRead[]
+
+  @@index([tenantId])
+  @@index([tenantId, createdAt])
+  @@map("staff_notifications")
+}
+
+model StaffNotificationRead {
+  notificationId String
+  userId         String
+  readAt         DateTime              @default(now())
+
+  notification   StaffNotification     @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([notificationId, userId])
+  @@index([userId])
+  @@map("staff_notification_reads")
 }

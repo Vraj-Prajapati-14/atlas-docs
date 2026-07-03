@@ -9,18 +9,18 @@ import type {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// All dates are interpreted in IST (UTC+5:30) — the timezone Indian restaurants operate in.
+// "2026-06-29 00:00 IST" = "2026-06-28 18:30 UTC"
+
 function dayBounds(dateStr: string): { gte: Date; lt: Date } {
-  const gte = new Date(`${dateStr}T00:00:00.000Z`)
-  const lt = new Date(`${dateStr}T00:00:00.000Z`)
-  lt.setUTCDate(lt.getUTCDate() + 1)
-  return { gte, lt }
+  const gte = new Date(`${dateStr}T00:00:00.000+05:30`)
+  return { gte, lt: new Date(gte.getTime() + 24 * 60 * 60 * 1000) }
 }
 
 function rangeBounds(from: string, to: string): { gte: Date; lt: Date } {
-  const gte = new Date(`${from}T00:00:00.000Z`)
-  const lt = new Date(`${to}T00:00:00.000Z`)
-  lt.setUTCDate(lt.getUTCDate() + 1)
-  return { gte, lt }
+  const gte = new Date(`${from}T00:00:00.000+05:30`)
+  const ltBase = new Date(`${to}T00:00:00.000+05:30`)
+  return { gte, lt: new Date(ltBase.getTime() + 24 * 60 * 60 * 1000) }
 }
 
 function paise(n: bigint): number {
@@ -233,9 +233,13 @@ export async function getPaymentReport(tenantId: string, query: DateRangeInput) 
 
 export async function getGSTReport(tenantId: string, query: GSTReportInput) {
   const { month, outletId } = query
-  const gte = new Date(`${month}-01T00:00:00.000Z`)
-  const lt = new Date(gte)
-  lt.setUTCMonth(lt.getUTCMonth() + 1)
+  // IST-aware month bounds: 2026-06 → 2026-06-01 00:00 IST to 2026-07-01 00:00 IST
+  const gte = new Date(`${month}-01T00:00:00.000+05:30`)
+  const parts = month.split('-').map(Number)
+  const y = parts[0] ?? new Date().getFullYear()
+  const m = parts[1] ?? 1
+  const nextMonth = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
+  const lt = new Date(`${nextMonth}-01T00:00:00.000+05:30`)
 
   const bills = await prisma.bill.findMany({
     where: {

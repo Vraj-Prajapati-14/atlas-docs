@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Search, ShoppingCart, Trash2, Plus, Minus, Send, UserRound, X, ArrowRightLeft, Star } from 'lucide-react'
+import { ArrowLeft, Search, ShoppingCart, Trash2, Plus, Minus, Send, UserRound, X, ArrowRightLeft, Star, ChevronRight } from 'lucide-react'
 import { useTable, useTables } from '@/hooks/use-tables'
 import { useMenuCategories, useMenuItems } from '@/hooks/use-menu'
 import { useActiveTableOrder, useCreateAndConfirmOrder, useFireKOT, useTransferOrder } from '@/hooks/use-orders'
@@ -25,9 +25,6 @@ function cartKey(item: CartItem) {
   return `${item.menuItemId}::${item.variantId ?? ''}`
 }
 
-// Hard-coded outletId fallback — real apps read from user/settings store
-const DEFAULT_OUTLET_ID = 'default'
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function POSPage({ params }: { params: { tableId: string } }) {
@@ -47,6 +44,7 @@ export default function POSPage({ params }: { params: { tableId: string } }) {
   const [cart, setCart] = useState<CartItem[]>([])
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [transferOpen, setTransferOpen] = useState(false)
+  const [mobilePanel, setMobilePanel] = useState<'menu' | 'cart'>('menu')
 
   const { data: items = [], isLoading: itemsLoading } = useMenuItems({
     categoryId: activeCat === 'all' ? undefined : activeCat,
@@ -102,7 +100,7 @@ export default function POSPage({ params }: { params: { tableId: string } }) {
       await fireKOT.mutateAsync({ orderId: activeOrder.id, cartItems: cart })
     } else {
       await createAndConfirm.mutateAsync({
-        outletId: DEFAULT_OUTLET_ID,
+        outletId: table!.outletId,
         tableId,
         cartItems: cart,
       })
@@ -123,7 +121,10 @@ export default function POSPage({ params }: { params: { tableId: string } }) {
   return (
     <div className="flex h-[calc(100dvh-56px)] gap-0 -m-6">
       {/* ── Left: Menu Browser ──────────────────────────────────────────── */}
-      <div className="flex flex-col flex-1 min-w-0 border-r border-border bg-background">
+      <div className={cn(
+        'flex-col flex-1 min-w-0 border-r border-border bg-background',
+        mobilePanel === 'menu' ? 'flex' : 'hidden md:flex',
+      )}>
         {/* Sticky header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-background shrink-0">
           <Button variant="ghost" size="icon-sm" onClick={() => router.back()}>
@@ -140,13 +141,13 @@ export default function POSPage({ params }: { params: { tableId: string } }) {
             )}
           </div>
           {/* Search */}
-          <div className="relative w-52">
+          <div className="relative flex-1 md:flex-none md:w-52">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <Input
               placeholder="Search dishes…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 h-8 text-xs"
+              className="pl-8 h-8 text-xs w-full"
             />
           </div>
         </div>
@@ -180,13 +181,47 @@ export default function POSPage({ params }: { params: { tableId: string } }) {
             </div>
           </div>
         )}
+        {/* Mobile: sticky cart bar */}
+        {cart.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setMobilePanel('cart')}
+            className={cn(
+              'md:hidden shrink-0 flex items-center justify-between',
+              'px-4 py-3 bg-primary-500 text-white',
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <ShoppingCart size={16} />
+              <span className="text-sm font-bold">
+                {cart.reduce((s, c) => s + c.quantity, 0)} item{cart.reduce((s, c) => s + c.quantity, 0) !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-sm font-bold">{paise(total)}</span>
+              <ChevronRight size={16} />
+            </div>
+          </button>
+        )}
       </div>
 
       {/* ── Right: Cart ─────────────────────────────────────────────────── */}
-      <div className="flex flex-col w-[320px] shrink-0 bg-background-card">
+      <div className={cn(
+        'flex-col bg-background-card',
+        mobilePanel === 'cart' ? 'flex flex-1' : 'hidden md:flex',
+        'md:w-[320px] md:flex-none',
+      )}>
         {/* Cart header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMobilePanel('menu')}
+              className="md:hidden flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-white/5 -ml-1"
+              aria-label="Back to menu"
+            >
+              <ArrowLeft size={15} />
+            </button>
             <ShoppingCart size={15} className="text-primary-500" />
             <span className="text-sm font-bold">Cart</span>
             {cart.length > 0 && (

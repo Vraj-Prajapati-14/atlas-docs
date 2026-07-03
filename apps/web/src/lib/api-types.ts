@@ -69,6 +69,7 @@ export interface Table {
   id: string
   name: string
   capacity: number
+  outletId: string
   floorId: string | null
   positionX: number | null
   positionY: number | null
@@ -546,6 +547,63 @@ export interface NotificationsListResponse {
   page: number
   limit: number
   totalPages: number
+}
+
+export interface BroadcastItem {
+  id:        string
+  type:      string
+  title:     string
+  body:      string
+  createdAt: string
+}
+
+// ─── Staff Notifications ──────────────────────────────────────────────────────
+
+export type StaffNotifSenderType = 'SUPER_ADMIN' | 'OWNER' | 'MANAGER' | 'SYSTEM'
+export type StaffNotifType =
+  | 'ANNOUNCEMENT' | 'LOW_STOCK' | 'ORDER_ALERT' | 'KOT_ALERT'
+  | 'BILL_VOID' | 'SHIFT_NOTE' | 'SUBSCRIPTION_EXPIRY' | 'PAYMENT_ALERT'
+  | 'AGGREGATOR_ORDER' | 'CUSTOM'
+export type StaffNotifPriority  = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'
+export type StaffNotifTargetType = 'ALL_STAFF' | 'ROLE' | 'SPECIFIC_USER'
+
+export interface StaffNotification {
+  id:            string
+  tenantId:      string
+  senderId:      string | null
+  senderType:    StaffNotifSenderType
+  senderName:    string
+  type:          StaffNotifType
+  title:         string
+  body:          string
+  priority:      StaffNotifPriority
+  targetType:    StaffNotifTargetType
+  targetRoles:   string[] | null
+  targetUserIds: string[] | null
+  expiresAt:     string | null
+  createdAt:     string
+  isRead:        boolean
+  readAt:        string | null
+}
+
+export interface StaffNotificationListResponse {
+  items:      StaffNotification[]
+  pagination: PaginationMeta
+}
+
+export interface StaffNotifUnreadCount {
+  unread: number
+}
+
+export interface SendNotificationPayload {
+  type?:          StaffNotifType
+  title:          string
+  body:           string
+  priority?:      StaffNotifPriority
+  targetType?:    StaffNotifTargetType
+  targetRoles?:   string[]
+  targetUserIds?: string[]
+  expiresAt?:     string
 }
 
 // ─── Supplier + Purchase Orders ───────────────────────────────────────────────
