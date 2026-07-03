@@ -1,8 +1,8 @@
 'use client'
 
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api-client'
-import type { NotificationsListResponse, NotificationChannel } from '@/lib/api-types'
+import type { NotificationsListResponse, NotificationChannel, BroadcastItem } from '@/lib/api-types'
 
 interface NotificationsQuery {
   channel?: NotificationChannel
@@ -27,5 +27,27 @@ export function useNotifications(query: NotificationsQuery = {}) {
 export function useTriggerNightlySummary() {
   return useMutation({
     mutationFn: () => apiClient.post('/api/v1/notifications/nightly-summary', {}),
+  })
+}
+
+// ─── Broadcasts (admin → tenant in-app messages) ──────────────────────────────
+
+export function useUnreadBroadcasts() {
+  return useQuery({
+    queryKey: ['broadcasts', 'unread'],
+    queryFn: () => apiClient.get<BroadcastItem[]>('/api/v1/notifications/broadcasts'),
+    refetchInterval: 60_000, // re-check every minute
+    staleTime: 30_000,
+  })
+}
+
+export function useDismissBroadcast() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (broadcastId: string) =>
+      apiClient.post(`/api/v1/notifications/broadcasts/${broadcastId}/dismiss`, {}),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['broadcasts', 'unread'] })
+    },
   })
 }

@@ -141,3 +141,36 @@ export enum AggregatorOrderStatus {
   DELIVERED = 'DELIVERED',
   CANCELLED = 'CANCELLED',
 }
+
+export enum StaffNotifSenderType {
+  SUPER_ADMIN = 'SUPER_ADMIN',
+  OWNER       = 'OWNER',
+  MANAGER     = 'MANAGER',
+  SYSTEM      = 'SYSTEM',
+}
+
+export enum StaffNotifType {
+  ANNOUNCEMENT       = 'ANNOUNCEMENT',
+  LOW_STOCK          = 'LOW_STOCK',
+  ORDER_ALERT        = 'ORDER_ALERT',
+  KOT_ALERT          = 'KOT_ALERT',
+  BILL_VOID          = 'BILL_VOID',
+  SHIFT_NOTE         = 'SHIFT_NOTE',
+  SUBSCRIPTION_EXPIRY = 'SUBSCRIPTION_EXPIRY',
+  PAYMENT_ALERT      = 'PAYMENT_ALERT',
+  AGGREGATOR_ORDER   = 'AGGREGATOR_ORDER',
+  CUSTOM             = 'CUSTOM',
+}
+
+export enum StaffNotifPriority {
+  LOW    = 'LOW',
+  NORMAL = 'NORMAL',
+  HIGH   = 'HIGH',
+  URGENT = 'URGENT',
+}
+
+export enum StaffNotifTargetType {
+  ALL_STAFF     = 'ALL_STAFF',
+  ROLE          = 'ROLE',
+  SPECIFIC_USER = 'SPECIFIC_USER',
+}

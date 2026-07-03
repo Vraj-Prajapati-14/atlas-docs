@@ -11,6 +11,7 @@ import {
   sendBillReceipt,
   sendNightlySummary,
 } from './notifications.service.js'
+import { getUnreadBroadcasts, dismissBroadcast } from '../admin/broadcasts.service.js'
 
 function validate<S extends z.ZodTypeAny>(schema: S, data: unknown): z.output<S> {
   const result = schema.safeParse(data)
@@ -39,6 +40,19 @@ export async function notificationsRoutes(app: FastifyInstance): Promise<void> {
     const { billId } = validate(z.object({ billId: z.string().min(1) }), request.params)
     const result = await sendBillReceipt(request.user.tenantId, billId)
     return ok(reply, result ?? { skipped: true, reason: 'No customer phone on bill' })
+  })
+
+  // ─── Broadcasts (admin → tenant in-app messages) ──────────────────────────
+
+  // Unread broadcasts for the authenticated tenant
+  app.get('/broadcasts', { preHandler: authenticate }, async (request, reply) => {
+    return ok(reply, await getUnreadBroadcasts(request.user.tenantId))
+  })
+
+  // Dismiss a broadcast for this tenant
+  app.post('/broadcasts/:id/dismiss', { preHandler: authenticate }, async (request, reply) => {
+    const { id } = validate(z.object({ id: z.string().min(1) }), request.params)
+    return ok(reply, await dismissBroadcast(id, request.user.tenantId))
   })
 
   // Trigger nightly summary — callable by OWNER/MANAGER or cron job with CRON_SECRET

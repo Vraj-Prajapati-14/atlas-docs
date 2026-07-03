@@ -1,14 +1,47 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { Eye, EyeOff, Phone, Mail, KeyRound, ArrowLeft, Building2 } from 'lucide-react'
 import Link from 'next/link'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { useLookupTenant, useLoginEmail, useLoginPIN, type TenantOption } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
+
+// Converts raw Error.message into user-friendly text.
+// API errors (from ApiError) already carry human-readable messages from the backend.
+// This helper handles the cases the API never sees: network failures.
+function friendlyMsg(error: Error | null | undefined, fallback: string): string {
+  if (!error) return fallback
+  const msg = error.message ?? ''
+  if (
+    msg === 'Failed to fetch' ||
+    msg.toLowerCase().includes('networkerror') ||
+    msg.toLowerCase().includes('network request failed')
+  ) {
+    return 'Network error — check your connection and try again.'
+  }
+  return msg || fallback
+}
+
+// Shows toast.info('Logged out') AFTER navigation lands on login — never before.
+// Reads ?loggedOut=1 set by useLogout.onSettled and cleans the URL.
+function LoggedOutNotice() {
+  const params = useSearchParams()
+  const router = useRouter()
+  useEffect(() => {
+    if (!params.get('loggedOut')) return
+    // id='auth-logout' deduplicates in case the effect fires more than once.
+    toast.info('Logged out successfully.', { id: 'auth-logout' })
+    router.replace('/login')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  return null
+}
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
 
@@ -72,7 +105,11 @@ function PhoneStep({
             autoComplete="tel"
             placeholder="9876543210"
             value={phone}
-            onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+            onChange={(e) => {
+                let d = e.target.value.replace(/\D/g, '')
+                if (d.length === 12 && d.startsWith('91')) d = d.slice(2)
+                setPhone(d.slice(0, 10))
+              }}
             disabled={lookup.isPending}
             className="pl-10"
           />
@@ -87,7 +124,7 @@ function PhoneStep({
       )}
       {lookup.isError && (
         <p className="text-xs text-danger animate-fade-in" role="alert">
-          {lookup.error?.message ?? 'Something went wrong. Try again.'}
+          {friendlyMsg(lookup.error, 'Something went wrong. Try again.')}
         </p>
       )}
 
@@ -213,7 +250,7 @@ function PINStep({
 
       {loginPIN.isError && (
         <p className="text-xs text-danger animate-fade-in" role="alert">
-          {loginPIN.error?.message ?? 'Incorrect PIN. Try again.'}
+          {friendlyMsg(loginPIN.error, 'Incorrect PIN. Try again.')}
         </p>
       )}
 
@@ -296,7 +333,7 @@ function EmailForm() {
 
       {login.isError && (
         <p className="text-xs text-danger animate-fade-in" role="alert">
-          {login.error?.message ?? 'Login failed. Check your credentials.'}
+          {friendlyMsg(login.error, 'Login failed — check your credentials.')}
         </p>
       )}
 
@@ -375,6 +412,10 @@ export default function LoginPage() {
 
   return (
     <div className="w-full max-w-[400px] animate-fade-in">
+      {/* Shows "Logged out successfully." toast after logout lands here — not before redirect */}
+      <Suspense>
+        <LoggedOutNotice />
+      </Suspense>
       <AtlasLogo />
 
       <div className="rounded-2xl border border-border bg-card p-6 shadow-xl shadow-black/20">

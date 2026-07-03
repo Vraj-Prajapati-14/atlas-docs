@@ -2,8 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import {
-  LayoutDashboard, LayoutGrid, ClipboardList, Receipt, ChefHat,
+import { X, LayoutDashboard, LayoutGrid, ClipboardList, Receipt, ChefHat,
   UtensilsCrossed, Package, BarChart3, Link as LinkIcon,
   Users, Settings, Bell, ContactRound, UserCircle,
 } from 'lucide-react'
@@ -18,14 +17,30 @@ const ICONS: Record<string, React.ElementType> = {
   Users, Settings, Bell, ContactRound, UserCircle,
 }
 
-export function Sidebar() {
+interface SidebarProps {
+  isOpen:  boolean
+  onClose: () => void
+}
+
+export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname()
   const user = useAuthStore((s) => s.user)
   const role = user?.role ?? ''
 
   return (
-    <aside className="flex flex-col w-[220px] shrink-0 h-full border-r border-border bg-background">
-      {/* Logo */}
+    <aside
+      className={cn(
+        // Base
+        'flex flex-col h-full border-r border-border bg-background',
+        // Mobile: fixed slide-in drawer
+        'fixed inset-y-0 left-0 z-50 w-72',
+        'transition-transform duration-300 ease-in-out will-change-transform',
+        isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full',
+        // Desktop: static, always visible, original width
+        'lg:static lg:translate-x-0 lg:w-[220px] lg:shrink-0 lg:shadow-none',
+      )}
+    >
+      {/* Logo + mobile close button */}
       <div className="flex items-center gap-3 px-5 h-14 border-b border-border shrink-0">
         <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary-500 shrink-0">
           <svg width="18" height="18" viewBox="0 0 28 28" fill="none" aria-hidden>
@@ -37,9 +52,21 @@ export function Sidebar() {
           <span className="text-primary-500">Atlas</span>
           <span className="text-foreground"> POS</span>
         </span>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close navigation"
+          className={cn(
+            'ml-auto flex items-center justify-center w-8 h-8 rounded-md',
+            'text-muted-foreground hover:text-foreground hover:bg-white/5',
+            'transition-colors lg:hidden',
+          )}
+        >
+          <X size={18} />
+        </button>
       </div>
 
-      {/* Nav */}
+      {/* Nav groups */}
       <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-5">
         {NAV_GROUPS.map((group) => {
           const visible = group.items.filter(
@@ -60,8 +87,9 @@ export function Sidebar() {
                     <li key={item.href}>
                       <Link
                         href={item.href}
+                        onClick={onClose}
                         className={cn(
-                          'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-100',
+                          'flex items-center gap-3 px-3 py-2.5 lg:py-2 rounded-md text-sm font-medium transition-all duration-100',
                           active
                             ? 'bg-primary-500/10 text-primary-500'
                             : 'text-muted-foreground hover:bg-white/5 hover:text-foreground',

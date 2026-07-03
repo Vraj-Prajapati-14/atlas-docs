@@ -29,6 +29,7 @@ import { publicPlugin } from './modules/public/index.js'
 import { registerPlugin } from './modules/register/index.js'
 import { onboardingPlugin } from './modules/onboarding/index.js'
 import { adminPlugin } from './modules/admin/index.js'
+import { staffNotificationsPlugin } from './modules/staff-notifications/index.js'
 
 export async function buildApp() {
   const app = Fastify({
@@ -131,6 +132,7 @@ export async function buildApp() {
       await v1.register(registerPlugin, { prefix: '/register' })
       await v1.register(onboardingPlugin, { prefix: '/onboarding' })
       await v1.register(adminPlugin, { prefix: '/admin' })
+      await v1.register(staffNotificationsPlugin, { prefix: '/staff-notifications' })
       v1.log.info('API v1 routes registered')
     },
     { prefix: '/api/v1' },

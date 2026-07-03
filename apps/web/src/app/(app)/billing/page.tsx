@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Receipt, CreditCard, X, ChevronRight, Trash2, Printer, Star, Lock } from 'lucide-react'
+import { Receipt, CreditCard, X, ChevronRight, Trash2, Printer, Star, Lock, ArrowLeft } from 'lucide-react'
 import { useOrders } from '@/hooks/use-orders'
 import { useBills, useBill, useGenerateBill, useRecordPayment, useVoidBill, useVerifyManagerPIN } from '@/hooks/use-billing'
 import { useSettings } from '@/hooks/use-settings'
@@ -59,15 +59,16 @@ export default function BillingPage() {
   const loyaltyEnabled    = settingsData?.settings?.loyaltyEnabled ?? false
   const redemptionRate    = settingsData?.settings?.loyaltyRedemptionRate ?? 100
 
+  const [mobilePanel, setMobilePanel] = useState<'list' | 'detail'>('list')
+
   const handleSelectOrder = (order: Order) => {
     setSelectedOrderId(order.id)
     setSelectedBillId(null)
-    // Check if a bill already exists for this order in our bills list
     const existing = bills.find((b) => b.orderId === order.id)
     if (existing) {
       setSelectedBillId(existing.id)
+      setMobilePanel('detail')
     } else {
-      // Open modal to configure discount/loyalty before generating
       setGenerateModalOrder(order)
     }
   }
@@ -75,12 +76,17 @@ export default function BillingPage() {
   const handleSelectBill = (billId: string) => {
     setSelectedBillId(billId)
     setSelectedOrderId(null)
+    setMobilePanel('detail')
   }
 
   return (
     <div className="flex h-[calc(100dvh-56px)] -m-6">
       {/* ── Left: order/bill list ──────────────────────────────────────── */}
-      <div className="flex flex-col w-[280px] shrink-0 border-r border-border bg-background">
+      <div className={cn(
+        'flex-col shrink-0 border-r border-border bg-background',
+        mobilePanel === 'list' ? 'flex flex-1' : 'hidden md:flex',
+        'md:w-[280px] md:flex-none',
+      )}>
         {/* Tabs */}
         <div className="flex border-b border-border">
           <TabBtn active={tab === 'to-bill'} onClick={() => setTab('to-bill')}>
@@ -143,7 +149,23 @@ export default function BillingPage() {
       </div>
 
       {/* ── Right: bill detail ─────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto bg-background-card">
+      <div className={cn(
+        'flex-1 overflow-y-auto bg-background-card',
+        mobilePanel === 'detail' ? 'flex flex-col' : 'hidden md:flex md:flex-col',
+      )}>
+        {/* Mobile back button */}
+        {mobilePanel === 'detail' && (
+          <div className="md:hidden flex items-center gap-2 px-4 py-3 border-b border-border bg-background shrink-0">
+            <button
+              type="button"
+              onClick={() => setMobilePanel('list')}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft size={15} />
+              Back
+            </button>
+          </div>
+        )}
         {selectedBillId ? (
           <BillDetail billId={selectedBillId} />
         ) : (

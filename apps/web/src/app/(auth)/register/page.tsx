@@ -226,7 +226,11 @@ export default function RegisterPage() {
                   inputMode="numeric"
                   placeholder="9876543210"
                   value={form.ownerPhone}
-                  onChange={(e) => setForm((f) => ({ ...f, ownerPhone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                  onChange={(e) => {
+                    let d = e.target.value.replace(/\D/g, '')
+                    if (d.length === 12 && d.startsWith('91')) d = d.slice(2)
+                    setForm((f) => ({ ...f, ownerPhone: d.slice(0, 10) }))
+                  }}
                   className="pl-10"
                   required
                 />

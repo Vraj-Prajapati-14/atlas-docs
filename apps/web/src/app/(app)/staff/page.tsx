@@ -221,7 +221,7 @@ export default function StaffPage() {
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overflow-x-auto">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <Spinner size="xl" className="text-primary-500" />
