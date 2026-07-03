@@ -231,7 +231,7 @@ export default function CustomersPage() {
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overflow-x-auto">
         {isLoading ? (
           <div className="flex items-center justify-center h-full"><Spinner size="xl" className="text-primary-500" /></div>
         ) : customers.length === 0 ? (
@@ -241,7 +241,7 @@ export default function CustomersPage() {
             {!search && <Button size="sm" onClick={() => setPanel('add')}>Add your first customer</Button>}
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-sm min-w-[600px]">
             <thead>
               <tr className="border-b border-border bg-background/40 sticky top-0">
                 {['Customer', 'Phone', 'Visits', 'Total Spent', 'Last Visit', ''].map(h => (

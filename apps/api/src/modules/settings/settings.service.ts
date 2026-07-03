@@ -9,6 +9,7 @@ export async function getSettings(tenantId: string) {
       select: {
         id: true, name: true, slug: true, type: true, plan: true,
         phone: true, email: true, website: true,
+        logoUrl: true, coverImageUrl: true, cuisineType: true,
         gstin: true, fssaiLicense: true, panNumber: true,
         addressLine1: true, addressLine2: true, city: true, state: true, pincode: true,
         currency: true, timezone: true, createdAt: true,
@@ -64,6 +65,7 @@ export async function updateTenant(tenantId: string, input: UpdateTenantInput) {
     select: {
       id: true, name: true, slug: true, type: true, plan: true,
       phone: true, email: true, website: true,
+      logoUrl: true, coverImageUrl: true, cuisineType: true,
       gstin: true, fssaiLicense: true, panNumber: true,
       addressLine1: true, addressLine2: true, city: true, state: true, pincode: true,
       currency: true, timezone: true, updatedAt: true,

@@ -88,6 +88,9 @@ async function request<T>(
         localStorage.removeItem('atlas_refresh')
         document.cookie = 'atlas_auth=; path=/; max-age=0; SameSite=Lax'
         window.location.href = '/login'
+        // Never resolves — page navigates away, preventing the ApiError throw from
+        // reaching any onError toast handlers that are still mounted during navigation.
+        return new Promise<never>(() => {})
       }
     }
     throw new ApiError(json.error.code, json.error.message, response.status)

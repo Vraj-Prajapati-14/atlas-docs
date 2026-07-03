@@ -31,18 +31,22 @@ function downloadCSV(filename: string, rows: (string | number | null | undefined
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// All date strings use IST (UTC+5:30) so they match the API's IST-based date boundaries.
+function toISTDateStr(d: Date): string {
+  const ist = new Date(d.getTime() + 5.5 * 60 * 60 * 1000)
+  return ist.toISOString().slice(0, 10)
+}
+
 function todayStr() {
-  return new Date().toISOString().split('T')[0] ?? ''
+  return toISTDateStr(new Date())
 }
 
 function daysAgoStr(n: number) {
-  const d = new Date()
-  d.setDate(d.getDate() - n)
-  return d.toISOString().split('T')[0] ?? ''
+  return toISTDateStr(new Date(Date.now() - n * 24 * 60 * 60 * 1000))
 }
 
 function currentMonthStr() {
-  return new Date().toISOString().slice(0, 7)
+  return toISTDateStr(new Date()).slice(0, 7)
 }
 
 function fmt(paise: number) {
@@ -225,8 +229,8 @@ function ItemsTab() {
       </div>
 
       {isLoading ? <Loading /> : sorted.length === 0 ? <Empty message="No items sold in this period." /> : (
-        <div className="bg-background-card border border-border rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="bg-background-card border border-border rounded-xl overflow-x-auto">
+          <table className="w-full text-sm min-w-[480px]">
             <thead>
               <tr className="border-b border-border bg-background/40">
                 <th className="text-left px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-wider w-8">#</th>
@@ -541,7 +545,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Tab bar */}
-      <div className="flex items-center gap-1 px-6 pt-4 pb-0 shrink-0 border-b border-border bg-background">
+      <div className="flex items-center gap-1 px-6 pt-4 pb-0 shrink-0 border-b border-border bg-background overflow-x-auto">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}

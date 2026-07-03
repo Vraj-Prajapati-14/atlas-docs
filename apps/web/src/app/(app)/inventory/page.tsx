@@ -131,8 +131,8 @@ function StockTab() {
           {!lowStockOnly && <Button variant="ghost" size="sm" onClick={() => setShowAdd(true)}><Plus size={13} /> Add first item</Button>}
         </div>
       ) : (
-        <div className="rounded-xl border border-border overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="rounded-xl border border-border overflow-x-auto">
+          <table className="w-full text-sm min-w-[600px]">
             <thead>
               <tr className="border-b border-border bg-background">
                 {['Item', 'Current Stock', 'Threshold', 'Cost / unit', 'Status', ''].map(h => (
@@ -197,8 +197,8 @@ function SuppliersTab() {
           <Button variant="ghost" size="sm" onClick={() => setPanel('add')}><Plus size={13} /> Add first supplier</Button>
         </div>
       ) : (
-        <div className="rounded-xl border border-border overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="rounded-xl border border-border overflow-x-auto">
+          <table className="w-full text-sm min-w-[600px]">
             <thead>
               <tr className="border-b border-border bg-background">
                 {['Supplier', 'Contact', 'Phone', 'GSTIN', 'Status', ''].map(h => (

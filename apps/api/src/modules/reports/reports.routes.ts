@@ -25,10 +25,14 @@ function validate<S extends z.ZodTypeAny>(schema: S, data: unknown): z.output<S>
   return result.data as z.output<S>
 }
 
-// Only managers and owners can pull reports
 const REPORT_GUARD = [
   authenticate,
   requireRole(UserRole.OWNER, UserRole.MANAGER, UserRole.CASHIER),
+]
+
+const INVENTORY_REPORT_GUARD = [
+  authenticate,
+  requireRole(UserRole.OWNER, UserRole.MANAGER, UserRole.CASHIER, UserRole.INVENTORY_MANAGER),
 ]
 
 export async function reportsRoutes(app: FastifyInstance): Promise<void> {
@@ -56,8 +60,8 @@ export async function reportsRoutes(app: FastifyInstance): Promise<void> {
     return ok(reply, await getGSTReport(request.user.tenantId, query))
   })
 
-  // Inventory valuation snapshot
-  app.get('/inventory-valuation', { preHandler: REPORT_GUARD }, async (request, reply) => {
+  // Inventory valuation snapshot — also accessible by INVENTORY_MANAGER
+  app.get('/inventory-valuation', { preHandler: INVENTORY_REPORT_GUARD }, async (request, reply) => {
     const query = validate(InventoryValuationQuery, request.query)
     return ok(reply, await getInventoryValuation(request.user.tenantId, query))
   })
