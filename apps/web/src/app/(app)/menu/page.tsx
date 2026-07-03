@@ -84,7 +84,7 @@ export default function MenuPage() {
     <div className="flex h-[calc(100dvh-56px)] -m-6 overflow-hidden">
 
       {/* ── Category rail ────────────────────────────────────────────── */}
-      <div className="flex flex-col w-[220px] shrink-0 border-r border-border bg-background overflow-hidden">
+      <div className="flex flex-col w-[120px] sm:w-[180px] md:w-[220px] shrink-0 border-r border-border bg-background overflow-hidden">
         <div className="px-4 py-3 border-b border-border shrink-0">
           <h2 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
             Categories

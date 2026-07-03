@@ -1,9 +1,10 @@
 'use client'
 
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { apiClient } from '@/lib/api-client'
+import { ApiError, apiClient } from '@/lib/api-client'
 import { useAuthStore, type AuthUser } from '@/lib/auth-store'
 
 interface LoginEmailPayload {
@@ -34,6 +35,19 @@ export interface TenantOption {
   planStatus: string
 }
 
+// 4xx auth errors (wrong password, locked account, deactivated) are shown inline
+// in the form — no toast for those. Toast only for 5xx or network failures.
+function toastIfUnexpected(error: Error) {
+  if (error instanceof ApiError && error.status < 500) return
+  const msg =
+    error.message === 'Failed to fetch' ||
+    error.message.toLowerCase().includes('networkerror') ||
+    error.message.toLowerCase().includes('network request failed')
+      ? 'Network error — check your connection and try again.'
+      : error.message || 'Something went wrong. Please try again.'
+  toast.error(msg)
+}
+
 export function useLookupTenant() {
   return useMutation({
     mutationFn: (phone: string) =>
@@ -50,11 +64,12 @@ export function useLoginEmail() {
       apiClient.post<LoginResponse>('/api/v1/auth/login/email', payload),
     onSuccess(data) {
       setAuth(data.user, data.accessToken, data.refreshToken)
-      toast.success(`Welcome back, ${data.user.name.split(' ')[0]}!`)
-      router.replace('/dashboard')
+      // Welcome toast is shown by AuthTransitionToast on the dashboard — not here on login page.
+      const firstName = encodeURIComponent(data.user.name.split(' ')[0] ?? data.user.name)
+      router.replace(`/dashboard?welcome=${firstName}`)
     },
     onError(error: Error) {
-      toast.error(error.message ?? 'Login failed — check your credentials.')
+      toastIfUnexpected(error)
     },
   })
 }
@@ -68,30 +83,31 @@ export function useLoginPIN() {
       apiClient.post<LoginResponse>('/api/v1/auth/login/pin', payload),
     onSuccess(data) {
       setAuth(data.user, data.accessToken, data.refreshToken)
-      toast.success(`Welcome, ${data.user.name.split(' ')[0]}!`)
-      router.replace('/dashboard')
+      // Welcome toast is shown by AuthTransitionToast on the dashboard — not here on login page.
+      const firstName = encodeURIComponent(data.user.name.split(' ')[0] ?? data.user.name)
+      router.replace(`/dashboard?welcome=${firstName}`)
     },
     onError(error: Error) {
-      toast.error(error.message ?? 'Login failed.')
+      toastIfUnexpected(error)
     },
   })
 }
 
 export function useLogout() {
   const { clearAuth, getRefreshToken } = useAuthStore()
-  const router = useRouter()
   const queryClient = useQueryClient()
+  const router = useRouter()
 
   return useMutation({
     mutationFn: () =>
       apiClient.post('/api/v1/auth/logout', { refreshToken: getRefreshToken() }),
     onSettled() {
-      // Clear query cache BEFORE clearing auth so no in-flight refetches
-      // trigger 401 errors and show unexpected toasts.
+      // Cancel in-flight queries before clearing auth to prevent 401 refetch storms.
       queryClient.cancelQueries()
       queryClient.clear()
       clearAuth()
-      router.replace('/login')
+      // Logout toast is shown by LoggedOutNotice on the login page — not here.
+      router.replace('/login?loggedOut=1')
     },
   })
 }
