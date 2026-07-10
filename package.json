@@ -29,6 +29,7 @@
     "prepare": "husky"
   },
   "devDependencies": {
+    "next": "14.2.13",
     "@commitlint/cli": "^19.4.0",
     "@commitlint/config-conventional": "^19.4.0",
     "husky": "^9.1.4",
