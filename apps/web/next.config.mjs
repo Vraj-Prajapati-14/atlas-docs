@@ -2,10 +2,6 @@
 const nextConfig = {
   reactStrictMode: true,
 
-  // On Vercel the CWD is the monorepo root, so write .next there directly.
-  // Locally (no VERCEL env) keep the default .next inside apps/web.
-  distDir: process.env.VERCEL ? '../../.next' : '.next',
-
   // Transpile local workspace packages
   transpilePackages: ['@atlas/types', '@atlas/utils'],
 
