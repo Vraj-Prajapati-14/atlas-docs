@@ -5,10 +5,6 @@ const nextConfig = {
   // Transpile local workspace packages
   transpilePackages: ['@atlas/types', '@atlas/utils'],
 
-  experimental: {
-    turbo: {},
-  },
-
   images: {
     remotePatterns: [
       {
