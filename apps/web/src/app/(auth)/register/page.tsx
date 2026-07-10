@@ -248,7 +248,7 @@ export default function RegisterPage() {
             <button type="button" onClick={() => setStep(2)} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-1">
               <ArrowLeft size={13} /> Back
             </button>
-            <p className="text-xs text-muted-foreground">Set a 4-digit PIN you'll use to log in every day.</p>
+            <p className="text-xs text-muted-foreground">Set a 4-digit PIN you&apos;ll use to log in every day.</p>
             <div className="space-y-1.5">
               <Label htmlFor="pin">Create PIN</Label>
               <Input

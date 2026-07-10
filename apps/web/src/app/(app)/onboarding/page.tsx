@@ -573,7 +573,7 @@ function Step7({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-muted-foreground">Connect thermal printers on your local network. Skip if you don't use a printer yet.</p>
+      <p className="text-xs text-muted-foreground">Connect thermal printers on your local network. Skip if you don&apos;t use a printer yet.</p>
 
       <div className="bg-background border border-border rounded-xl p-4 space-y-1 text-xs text-muted-foreground">
         <p className="font-semibold text-foreground">How to find printer IP:</p>
