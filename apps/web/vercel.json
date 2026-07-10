@@ -1,6 +1,6 @@
 {
   "framework": "nextjs",
-  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
-  "buildCommand": "cd ../.. && pnpm turbo run build --filter=@atlas/web",
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile && pnpm --filter @atlas/types build && pnpm --filter @atlas/utils build",
+  "buildCommand": "next build",
   "outputDirectory": ".next"
 }
