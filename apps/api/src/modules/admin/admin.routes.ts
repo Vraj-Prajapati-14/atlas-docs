@@ -2,7 +2,6 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { ok } from '../../shared/response.js'
 import { ValidationError, UnauthorizedError } from '../../shared/errors.js'
-import { config } from '../../config/index.js'
 import {
   adminLogin,
   listTenants,
@@ -24,7 +23,7 @@ function validate<S extends z.ZodTypeAny>(schema: S, data: unknown): z.output<S>
 }
 
 // Super-admin JWT uses a separate secret from tenant JWTs
-async function authenticateSuperAdmin(request: FastifyRequest, reply: FastifyReply) {
+async function authenticateSuperAdmin(request: FastifyRequest, _reply: FastifyReply) {
   const authHeader = request.headers.authorization
   if (!authHeader?.startsWith('Bearer ')) throw new UnauthorizedError('Missing admin token')
 
@@ -35,7 +34,7 @@ async function authenticateSuperAdmin(request: FastifyRequest, reply: FastifyRep
     if (payload.tenantId !== '__admin__' || payload.role !== 'SUPER_ADMIN' || (payload as { sessionId?: string }).sessionId === 'admin_refresh') {
       throw new UnauthorizedError('Not a super-admin token')
     }
-    ;(request as FastifyRequest & { adminId: string }).adminId = payload.sub
+    (request as FastifyRequest & { adminId: string }).adminId = payload.sub
   } catch {
     throw new UnauthorizedError('Invalid or expired admin token')
   }

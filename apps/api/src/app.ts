@@ -102,7 +102,7 @@ export async function buildApp() {
   await app.register(healthRoutes, { prefix: '/api' })
 
   // Root route
-  app.get('/', async (_request, reply) => {
+  app.get('/', async (_request, _reply) => {
     return {
       success: true,
       message: 'Atlas API is running',

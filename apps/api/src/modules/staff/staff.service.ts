@@ -50,7 +50,7 @@ export async function createStaff(tenantId: string, input: CreateStaffInput) {
   })
 }
 
-export async function updateStaff(tenantId: string, id: string, input: UpdateStaffInput, requesterId: string) {
+export async function updateStaff(tenantId: string, id: string, input: UpdateStaffInput, _requesterId: string) {
   const user = await prisma.user.findFirst({ where: { id, tenantId, deletedAt: null } })
   if (!user) throw new NotFoundError('Staff member', id)
 
