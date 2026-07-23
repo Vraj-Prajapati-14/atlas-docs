@@ -19,7 +19,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: 'Floor Plan',  href: '/floor',      icon: 'LayoutGrid' },
       { label: 'Orders',      href: '/orders',     icon: 'ClipboardList' },
       { label: 'Billing',     href: '/billing',    icon: 'Receipt' },
-      { label: 'Kitchen',     href: '/kds',        icon: 'ChefHat', badge: 'KDS' },
+      { label: 'Kitchen',     href: '/kds',        icon: 'ChefHat', badge: 'KDS', roles: ['OWNER', 'MANAGER', 'CHEF'] },
     ],
   },
   {
