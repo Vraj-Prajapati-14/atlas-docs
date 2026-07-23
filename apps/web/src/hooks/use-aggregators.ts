@@ -96,3 +96,13 @@ export function useCancelAggregatorOrder() {
     onError(err: Error) { toast.error(err.message) },
   })
 }
+
+export function useDeliverAggregatorOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiClient.post<AggregatorOrder>(`/api/v1/aggregators/orders/${id}/deliver`, {}),
+    onSuccess() { qc.invalidateQueries({ queryKey: ['aggregator-orders'] }); toast.success('Order marked as delivered.') },
+    onError(err: Error) { toast.error(err.message) },
+  })
+}

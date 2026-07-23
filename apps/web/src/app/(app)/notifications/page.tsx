@@ -1,5 +1,6 @@
 'use client'
 
+import { useRequireRole } from '@/hooks/use-require-role'
 import { useState } from 'react'
 import {
   Bell, Send, Inbox, ChevronLeft, ChevronRight,
@@ -619,8 +620,10 @@ const TABS: { id: Tab; label: string; Icon: React.ElementType }[] = [
 ]
 
 export default function NotificationsPage() {
+  const allowed = useRequireRole(['OWNER', 'MANAGER'])
   const user = useAuthStore((s) => s.user)
   const canSend = user?.role === 'OWNER' || user?.role === 'MANAGER'
+  if (!allowed) return null
   const [tab, setTab] = useState<Tab>('inbox')
 
   const visibleTabs = TABS.filter((t) => canSend || (t.id !== 'sent' && t.id !== 'compose'))

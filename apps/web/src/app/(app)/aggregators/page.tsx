@@ -1,11 +1,13 @@
 'use client'
 
+import { useRequireRole } from '@/hooks/use-require-role'
 import { useState } from 'react'
+import { useAuthStore } from '@/lib/auth-store'
 import { Link as LinkIcon, Plus, Pencil, Trash2, CheckCircle, Truck, PackageCheck, XCircle, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   useAggregatorCredentials, useAggregatorOrders,
   useCreateCredential, useUpdateCredential, useDeleteCredential,
-  useAcceptAggregatorOrder, useDispatchAggregatorOrder, useCancelAggregatorOrder,
+  useAcceptAggregatorOrder, useDispatchAggregatorOrder, useCancelAggregatorOrder, useDeliverAggregatorOrder,
 } from '@/hooks/use-aggregators'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -49,9 +51,10 @@ function CredentialPanel({ cred, onClose }: { cred?: AggregatorCredential | null
   const isEdit = !!cred
   const create = useCreateCredential()
   const update = useUpdateCredential()
+  const tenantId = useAuthStore((s) => s.user?.tenantId ?? '')
 
   const [platform, setPlatform]   = useState<AggregatorPlatform>(cred?.platform ?? 'ZOMATO')
-  const [outletId, setOutletId]   = useState('outlet-demo-main')
+  const [outletId, setOutletId]   = useState(cred?.outletId ?? tenantId)
   const [apiKey, setApiKey]       = useState('')
   const [secretKey, setSecretKey] = useState('')
   const [restId, setRestId]       = useState(cred?.restaurantId ?? '')
@@ -142,6 +145,7 @@ function CredentialPanel({ cred, onClose }: { cred?: AggregatorCredential | null
 function OrderCard({ order }: { order: AggregatorOrder }) {
   const accept   = useAcceptAggregatorOrder()
   const dispatch = useDispatchAggregatorOrder()
+  const deliver  = useDeliverAggregatorOrder()
   const cancel   = useCancelAggregatorOrder()
 
   const [cancelMode, setCancelMode] = useState(false)
@@ -215,8 +219,9 @@ function OrderCard({ order }: { order: AggregatorOrder }) {
               </Button>
             )}
             {order.status === 'DISPATCHED' && (
-              <Button size="sm" variant="outline" className="flex-1 text-xs gap-1.5" disabled={false}>
-                <PackageCheck size={12} /> Delivered
+              <Button size="sm" variant="outline" className="flex-1 text-xs gap-1.5" disabled={deliver.isPending}
+                onClick={() => deliver.mutate(order.id)}>
+                {deliver.isPending ? <Spinner size="xs" /> : <PackageCheck size={12} />} Delivered
               </Button>
             )}
           </div>
@@ -246,6 +251,7 @@ function OrderCard({ order }: { order: AggregatorOrder }) {
 const STATUS_FILTERS: (AggregatorOrderStatus | 'ALL')[] = ['ALL', 'NEW', 'ACCEPTED', 'DISPATCHED', 'DELIVERED', 'CANCELLED']
 
 export default function AggregatorsPage() {
+  const allowed = useRequireRole(['OWNER', 'MANAGER'])
   const [credPanel, setCredPanel] = useState<AggregatorCredential | 'add' | null>(null)
   const [statusFilter, setStatusFilter] = useState<AggregatorOrderStatus | 'ALL'>('ALL')
   const [platformFilter, setPlatformFilter] = useState<AggregatorPlatform | 'ALL'>('ALL')
@@ -258,6 +264,8 @@ export default function AggregatorsPage() {
     page,
   })
   const deleteCredential = useDeleteCredential()
+
+  if (!allowed) return null
 
   const orders     = ordersData?.data ?? []
   const pagination = ordersData?.meta?.pagination

@@ -1,5 +1,6 @@
 'use client'
 
+import { useRequireRole } from '@/hooks/use-require-role'
 import { useState } from 'react'
 import {
   Search, AlertTriangle, Plus, X, Package,
@@ -57,7 +58,9 @@ function fmtStock(qty: number, unit: string) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function InventoryPage() {
+  const allowed = useRequireRole(['OWNER', 'MANAGER', 'INVENTORY_MANAGER'])
   const [tab, setTab] = useState<Tab>('stock')
+  if (!allowed) return null
   return (
     <div className="space-y-4">
       {/* Tab bar */}

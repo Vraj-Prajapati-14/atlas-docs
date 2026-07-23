@@ -1,5 +1,6 @@
 'use client'
 
+import { useRequireRole } from '@/hooks/use-require-role'
 import { useState } from 'react'
 import { Users, Plus, KeyRound, Pencil, Trash2, Power, Search } from 'lucide-react'
 import {
@@ -179,9 +180,11 @@ function DeleteConfirm({ member, onClose }: { member: StaffMember; onClose: () =
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function StaffPage() {
+  const allowed   = useRequireRole(['OWNER', 'MANAGER'])
   const user      = useAuthStore((s) => s.user)
   const isOwner   = user?.role === 'OWNER'
   const isManager = user?.role === 'MANAGER'
+  if (!allowed) return null
 
   const [search,  setSearch]  = useState('')
   const [panel,   setPanel]   = useState<'add' | StaffMember | null>(null)

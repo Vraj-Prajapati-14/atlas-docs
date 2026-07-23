@@ -1,5 +1,6 @@
 'use client'
 
+import { useRequireRole } from '@/hooks/use-require-role'
 import { useState } from 'react'
 import { BarChart3, TrendingUp, ShoppingBag, Receipt, Package, RefreshCw, Download } from 'lucide-react'
 import {
@@ -532,7 +533,9 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
 ]
 
 export default function ReportsPage() {
+  const allowed = useRequireRole(['OWNER', 'MANAGER', 'INVENTORY_MANAGER'])
   const [tab, setTab] = useState<Tab>('daily')
+  if (!allowed) return null
 
   return (
     <div className="flex flex-col h-full -m-6 bg-background-card">

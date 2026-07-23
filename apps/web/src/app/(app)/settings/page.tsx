@@ -1,5 +1,6 @@
 'use client'
 
+import { useRequireRole } from '@/hooks/use-require-role'
 import { useEffect, useState } from 'react'
 import { Settings, Building2, Sliders, Save, Star, Lock } from 'lucide-react'
 import { useSettings, useUpdateSettings, useUpdateOutlet, useUpdateTenant } from '@/hooks/use-settings'
@@ -376,8 +377,10 @@ function POSSection({ settings, disabled }: { settings: TenantSettings | null; d
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
+  const allowed  = useRequireRole(['OWNER', 'MANAGER'])
   const user     = useAuthStore((s) => s.user)
   const isOwner  = user?.role === 'OWNER'
+  if (!allowed) return null
 
   const { data, isLoading } = useSettings()
 

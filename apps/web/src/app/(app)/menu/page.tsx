@@ -1,5 +1,6 @@
 'use client'
 
+import { useRequireRole } from '@/hooks/use-require-role'
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import {
   Plus, Search, Edit2, Trash2, Check, X, Star, ChevronRight,
@@ -46,12 +47,13 @@ function fmt(paise: number) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function MenuPage() {
-  const { data: categories = [], isLoading: catsLoading } = useMenuCategories()
+  const allowed = useRequireRole(['OWNER', 'MANAGER'])
   const [activeCatId, setActiveCatId] = useState<string | 'all'>('all')
   const [search, setSearch] = useState('')
   const [foodFilter, setFoodFilter] = useState<FoodType | 'all'>('all')
   const [dialogItem, setDialogItem] = useState<MenuItem | 'new' | null>(null)
 
+  const { data: categories = [], isLoading: catsLoading } = useMenuCategories()
   const { data: items = [], isLoading: itemsLoading } = useMenuItems(
     activeCatId === 'all'
       ? { search: search || undefined, limit: 300 }
@@ -63,7 +65,6 @@ export default function MenuPage() {
     return items.filter((i) => i.foodType === foodFilter)
   }, [items, foodFilter])
 
-  // Group by category when "all" is selected
   const grouped = useMemo(() => {
     if (activeCatId !== 'all') return null
     const map = new Map<string, MenuItem[]>()
@@ -79,6 +80,8 @@ export default function MenuPage() {
 
   const defaultCategoryId =
     activeCatId !== 'all' ? activeCatId : (categories[0]?.id ?? '')
+
+  if (!allowed) return null
 
   return (
     <div className="flex h-[calc(100dvh-56px)] -m-6 overflow-hidden">

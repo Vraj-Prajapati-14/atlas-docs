@@ -200,12 +200,14 @@ export default function BillingPage() {
 
 function BillDetail({ billId }: { billId: string }) {
   const { data: bill, isLoading } = useBill(billId)
+  const { data: settingsData } = useSettings()
   const [showPayment, setShowPayment] = useState(false)
   const [showVoidConfirm, setShowVoidConfirm] = useState(false)
   const [showPrint, setShowPrint] = useState(false)
   const voidBill = useVoidBill()
   const user = useAuthStore((s) => s.user)
   const canVoid = user?.role === 'OWNER' || user?.role === 'MANAGER'
+  const restaurantName = settingsData?.tenant?.name ?? 'Restaurant'
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-full"><Spinner size="lg" className="text-primary-500" /></div>
@@ -336,7 +338,7 @@ function BillDetail({ billId }: { billId: string }) {
       )}
 
       {/* Void — OWNER / MANAGER only, not on already-voided bills */}
-      {showPrint && <PrintBillModal bill={bill} onClose={() => setShowPrint(false)} />}
+      {showPrint && <PrintBillModal bill={bill} restaurantName={restaurantName} onClose={() => setShowPrint(false)} />}
 
       {canVoid && bill.paymentStatus !== 'REFUNDED' && (
         showVoidConfirm ? (
@@ -544,7 +546,7 @@ function GenerateBillModal({
 
 // ─── Print Bill Modal ─────────────────────────────────────────────────────────
 
-function PrintBillModal({ bill, onClose }: { bill: Bill; onClose: () => void }) {
+function PrintBillModal({ bill, restaurantName, onClose }: { bill: Bill; restaurantName: string; onClose: () => void }) {
   function handlePrint() {
     const printArea = document.getElementById('atlas-print-receipt')
     if (!printArea) return
@@ -568,7 +570,10 @@ function PrintBillModal({ bill, onClose }: { bill: Bill; onClose: () => void }) 
     win.document.write('</body></html>')
     win.document.close()
     win.focus()
-    setTimeout(() => { win.print(); win.close() }, 200)
+    setTimeout(() => {
+      win.print()
+      win.onafterprint = () => win.close()
+    }, 200)
   }
 
   const paidAmount = bill.payments.reduce((s, p) => s + p.amountInPaise, 0)
@@ -582,7 +587,7 @@ function PrintBillModal({ bill, onClose }: { bill: Bill; onClose: () => void }) 
         </div>
 
         <div id="atlas-print-receipt" className="flex-1 overflow-y-auto p-4 font-mono text-[11px] leading-tight bg-white text-black">
-          <h1 className="text-[14px] font-bold text-center mb-1">ATLAS POS</h1>
+          <h1 className="text-[14px] font-bold text-center mb-1">{restaurantName}</h1>
           <p className="text-center text-[10px] mb-1">Tax Invoice</p>
           <hr className="border-dashed border-gray-400 my-2" />
           <table className="w-full">
@@ -590,8 +595,8 @@ function PrintBillModal({ bill, onClose }: { bill: Bill; onClose: () => void }) 
               <tr><td>Bill No:</td><td className="text-right font-bold">#{bill.billNumber}</td></tr>
               <tr><td>Order:</td><td className="text-right">#{bill.order?.orderNumber}</td></tr>
               {bill.order?.table && <tr><td>Table:</td><td className="text-right">{bill.order.table.name}</td></tr>}
-              <tr><td>Date:</td><td className="text-right">{new Date().toLocaleDateString('en-IN')}</td></tr>
-              <tr><td>Time:</td><td className="text-right">{new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</td></tr>
+              <tr><td>Date:</td><td className="text-right">{new Date(bill.createdAt).toLocaleDateString('en-IN')}</td></tr>
+              <tr><td>Time:</td><td className="text-right">{new Date(bill.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</td></tr>
             </tbody>
           </table>
           <hr className="border-dashed border-gray-400 my-2" />

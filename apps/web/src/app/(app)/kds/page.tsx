@@ -1,5 +1,6 @@
 'use client'
 
+import { useRequireRole } from '@/hooks/use-require-role'
 import { ChefHat, RefreshCw } from 'lucide-react'
 import { useActiveKOTs } from '@/hooks/use-kots'
 import { KOTCard } from '@/components/kds/kot-card'
@@ -10,7 +11,9 @@ import { cn } from '@/lib/utils'
 import type { KOTStatus } from '@/lib/api-types'
 
 export default function KDSPage() {
+  const allowed = useRequireRole(['OWNER', 'MANAGER', 'CHEF'])
   const { data: kots = [], isLoading, isFetching, refetch } = useActiveKOTs()
+  if (!allowed) return null
 
   const counts: Partial<Record<KOTStatus, number>> = kots.reduce((acc, k) => {
     acc[k.status] = (acc[k.status] ?? 0) + 1

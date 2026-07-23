@@ -1,5 +1,6 @@
 'use client'
 
+import { useRequireRole } from '@/hooks/use-require-role'
 import { useState } from 'react'
 import { Users, Plus, Search, Phone, Mail, Star, Pencil } from 'lucide-react'
 import { useCustomers, useCreateCustomer, useUpdateCustomer, useCustomerDetail } from '@/hooks/use-customers'
@@ -195,7 +196,9 @@ function CustomerDrawer({ customerId, onClose, onEdit }: { customerId: string; o
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CustomersPage() {
+  const allowed = useRequireRole(['OWNER', 'MANAGER', 'CASHIER'])
   const [search,    setSearch]    = useState('')
+  if (!allowed) return null
   const [page,      setPage]      = useState(1)
   const [panel,     setPanel]     = useState<'add' | Customer | null>(null)
   const [detailId,  setDetailId]  = useState<string | null>(null)
