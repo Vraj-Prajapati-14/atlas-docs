@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import { ThemeProvider } from 'next-themes'
-import { Toaster } from 'sonner'
 import { QueryProvider } from '@/lib/query-client'
+import { ClientToaster } from '@/components/ui/client-toaster'
 import './globals.css'
 
 const inter = Inter({
@@ -63,19 +63,7 @@ export default function RootLayout({
         >
           <QueryProvider>
             {children}
-            <Toaster
-              theme="dark"
-              position="top-right"
-              richColors
-              closeButton
-              toastOptions={{
-                style: {
-                  background: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  color: 'hsl(var(--foreground))',
-                },
-              }}
-            />
+            <ClientToaster />
           </QueryProvider>
         </ThemeProvider>
       </body>

@@ -31,12 +31,12 @@ const config: Config = {
           900: '#732207',
         },
 
-        // Dark surfaces — slate-based
+        // Surfaces — CSS-variable-driven so dark/light theme toggle works
         background: {
-          DEFAULT: '#0C0F18',
-          card:    '#141828',
-          hover:   '#1A2035',
-          border:  '#252D45',
+          DEFAULT: 'hsl(var(--background))',
+          card:    'hsl(var(--background-card))',
+          hover:   'hsl(var(--background-hover))',
+          border:  'hsl(var(--background-border))',
         },
 
         // Semantic

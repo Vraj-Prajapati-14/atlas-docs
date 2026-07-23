@@ -2,66 +2,72 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── CSS Variables — shadcn/ui + Atlas design tokens ────────────────────── */
+/* ─── Design tokens — light & dark ──────────────────────────────────────── */
 
 @layer base {
+  /* ── Light theme (default) ── */
   :root {
-    /* Light mode (not used — Atlas is dark-first) */
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 19 100% 60%;     /* #FF6B35 */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
+    --background:        220 20% 97%;     /* #F4F6FA */
+    --background-card:   0 0% 100%;       /* #FFFFFF */
+    --background-hover:  220 14% 93%;     /* #ECEEF4 */
+    --background-border: 214 28% 86%;     /* #D6DCE9 */
+
+    --foreground:        222 47% 11%;     /* #111827 */
+    --card:              0 0% 100%;
+    --card-foreground:   222 47% 11%;
+    --popover:           0 0% 100%;
+    --popover-foreground:222 47% 11%;
+    --primary:           19 100% 60%;     /* #FF6B35 */
+    --primary-foreground:0 0% 100%;
+    --secondary:         220 14% 93%;
+    --secondary-foreground: 222 47% 11%;
+    --muted:             220 14% 93%;
+    --muted-foreground:  215 16% 47%;     /* #64748B */
+    --accent:            220 14% 93%;
+    --accent-foreground: 222 47% 11%;
+    --destructive:       0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 19 100% 60%;
-    --radius: 0.5rem;
+    --border:            214 28% 86%;
+    --input:             214 28% 86%;
+    --ring:              19 100% 60%;
+    --radius:            0.5rem;
   }
 
+  /* ── Dark theme ── */
   .dark {
-    /* Atlas dark theme — primary surface */
-    --background: 222 35% 7%;        /* #0C0F18 */
-    --foreground: 210 20% 92%;
-    --card: 223 32% 11%;             /* #141828 */
-    --card-foreground: 210 20% 92%;
-    --popover: 223 32% 11%;
-    --popover-foreground: 210 20% 92%;
-    --primary: 19 100% 60%;          /* #FF6B35 */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 217 25% 16%;
+    --background:        222 35% 7%;      /* #0C0F18 */
+    --background-card:   223 32% 11%;     /* #141828 */
+    --background-hover:  222 30% 14%;     /* #1A2035 */
+    --background-border: 217 25% 16%;     /* #252D45 */
+
+    --foreground:        210 20% 92%;
+    --card:              223 32% 11%;
+    --card-foreground:   210 20% 92%;
+    --popover:           223 32% 11%;
+    --popover-foreground:210 20% 92%;
+    --primary:           19 100% 60%;     /* #FF6B35 */
+    --primary-foreground:0 0% 100%;
+    --secondary:         217 25% 16%;
     --secondary-foreground: 210 20% 92%;
-    --muted: 217 25% 16%;
-    --muted-foreground: 215 16% 55%;
-    --accent: 217 25% 16%;
+    --muted:             217 25% 16%;
+    --muted-foreground:  215 16% 55%;
+    --accent:            217 25% 16%;
     --accent-foreground: 210 20% 92%;
-    --destructive: 0 62.8% 50%;
+    --destructive:       0 63% 50%;
     --destructive-foreground: 0 0% 100%;
-    --border: 217 25% 18%;           /* #252D45 */
-    --input: 217 25% 18%;
-    --ring: 19 100% 60%;
+    --border:            217 25% 18%;
+    --input:             217 25% 18%;
+    --ring:              19 100% 60%;
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+  * { @apply border-border; }
 
   html {
     @apply antialiased;
     font-feature-settings: 'cv11', 'ss01';
-    font-variant-numeric: tabular-nums;  /* stable widths for prices */
+    font-variant-numeric: tabular-nums;
   }
 
   body {
@@ -69,46 +75,28 @@
     min-height: 100dvh;
   }
 
-  /* Scrollbar styling — thin, dark */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track { @apply bg-transparent; }
-  ::-webkit-scrollbar-thumb { @apply bg-white/10 rounded-full; }
-  ::-webkit-scrollbar-thumb:hover { @apply bg-white/20; }
+  /* ── Scrollbars ── */
+  ::-webkit-scrollbar        { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track  { @apply bg-transparent; }
+  ::-webkit-scrollbar-thumb  { @apply rounded-full bg-border; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-muted-foreground/30; }
 
-  /* Focus ring */
+  /* ── Focus ring ── */
   :focus-visible {
     @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
   }
 }
 
-/* ─── Utility classes ─────────────────────────────────────────────────────── */
+/* ─── Utilities ──────────────────────────────────────────────────────────── */
 
 @layer utilities {
-  /* Price display — always monospace, tabular */
-  .price {
-    @apply font-mono tabular-nums tracking-tight;
-  }
+  .price      { @apply font-mono tabular-nums tracking-tight; }
+  .skeleton   { @apply animate-pulse rounded-md bg-muted; }
+  .kot-font   { @apply font-mono text-sm leading-relaxed tracking-wide; }
+  .page-center{ @apply flex min-h-[calc(100dvh-4rem)] items-center justify-center; }
 
-  /* Skeleton loading animation */
-  .skeleton {
-    @apply animate-pulse rounded-md bg-white/5;
-  }
-
-  /* KOT ticket font — thermal printer optimized */
-  .kot-font {
-    @apply font-mono text-sm leading-relaxed tracking-wide;
-  }
-
-  /* Full page center */
-  .page-center {
-    @apply flex min-h-[calc(100dvh-4rem)] items-center justify-center;
-  }
-
-  /* Card glass effect */
+  /* Light-mode aware glass */
   .glass {
-    @apply bg-white/5 backdrop-blur-sm border border-white/10;
+    @apply bg-background-card/80 backdrop-blur-sm border border-border;
   }
 }
