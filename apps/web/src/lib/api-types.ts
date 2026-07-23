@@ -667,12 +667,40 @@ export interface RecipeIngredient {
 // ─── Profile / Me ─────────────────────────────────────────────────────────────
 
 export interface ProfileMe {
-  id:       string
-  tenantId: string
-  name:     string
-  email:    string | null
-  phone:    string
-  role:     string
+  id:                 string
+  tenantId:           string
+  name:               string
+  email:              string | null
+  phone:              string
+  role:               string
+  lastLoginAt:        string | null
+  passwordChangedAt:  string | null
+  hasPIN:             boolean
+  hasPassword:        boolean
+}
+
+export interface UserSessionItem {
+  id:         string
+  deviceInfo: string | null
+  ipAddress:  string | null
+  createdAt:  string
+  expiresAt:  string
+  isCurrent:  boolean
+}
+
+export interface LoginHistoryItem {
+  id:        string
+  action:    string
+  ipAddress: string | null
+  createdAt: string
+  method:    string | null
+}
+
+export interface NotifPrefs {
+  notifOrderAlerts: boolean
+  notifLowStock:    boolean
+  notifDailyReport: boolean
+  notifLoginAlert:  boolean
 }
 
 // ─── Pagination ──────────────────────────────────────────────────────────────

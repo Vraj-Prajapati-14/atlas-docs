@@ -317,6 +317,12 @@ model User {
   lastLoginAt         DateTime?
   passwordChangedAt   DateTime?
 
+  // Notification preferences
+  notifOrderAlerts  Boolean @default(true)
+  notifLowStock     Boolean @default(true)
+  notifDailyReport  Boolean @default(false)
+  notifLoginAlert   Boolean @default(true)
+
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
