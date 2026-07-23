@@ -22,8 +22,10 @@ function validate<S extends z.ZodTypeAny>(schema: S, data: unknown): z.output<S>
   return result.data as z.output<S>
 }
 
+// Kitchen actions: only OWNER, MANAGER, CHEF can advance KOT state
+const KITCHEN_GUARD = [authenticate, requireRole(UserRole.OWNER, UserRole.MANAGER, UserRole.CHEF)]
 // Only OWNER/MANAGER can force-cancel a KOT
-const CANCEL_GUARD = [authenticate, requireRole(UserRole.OWNER, UserRole.MANAGER)]
+const CANCEL_GUARD  = [authenticate, requireRole(UserRole.OWNER, UserRole.MANAGER)]
 
 export async function kotsRoutes(app: FastifyInstance): Promise<void> {
   // ─── List KOTs (KDS main query: GET /kots?active=true) ──────────────────────
@@ -41,21 +43,21 @@ export async function kotsRoutes(app: FastifyInstance): Promise<void> {
   })
 
   // ─── Kitchen: accept KOT (PENDING → ACCEPTED) ────────────────────────────────
-  app.post('/:id/accept', { preHandler: authenticate }, async (request, reply) => {
+  app.post('/:id/accept', { preHandler: KITCHEN_GUARD }, async (request, reply) => {
     const { id } = validate(KOTIdParam, request.params)
     const kot = await acceptKOT(request.user.tenantId, id)
     return ok(reply, kot)
   })
 
   // ─── Kitchen: start cooking (PENDING|ACCEPTED → IN_PROGRESS, order → IN_PROGRESS) ──
-  app.post('/:id/start', { preHandler: authenticate }, async (request, reply) => {
+  app.post('/:id/start', { preHandler: KITCHEN_GUARD }, async (request, reply) => {
     const { id } = validate(KOTIdParam, request.params)
     const kot = await startKOT(request.user.tenantId, id)
     return ok(reply, kot)
   })
 
   // ─── Kitchen: food ready (IN_PROGRESS → DONE, order → READY if all KOTs done) ──
-  app.post('/:id/done', { preHandler: authenticate }, async (request, reply) => {
+  app.post('/:id/done', { preHandler: KITCHEN_GUARD }, async (request, reply) => {
     const { id } = validate(KOTIdParam, request.params)
     const kot = await doneKOT(request.user.tenantId, id)
     return ok(reply, kot)
@@ -69,7 +71,7 @@ export async function kotsRoutes(app: FastifyInstance): Promise<void> {
   })
 
   // ─── Mark KOT as printed ─────────────────────────────────────────────────────
-  app.post('/:id/print', { preHandler: authenticate }, async (request, reply) => {
+  app.post('/:id/print', { preHandler: KITCHEN_GUARD }, async (request, reply) => {
     const { id } = validate(KOTIdParam, request.params)
     const kot = await markPrinted(request.user.tenantId, id)
     return ok(reply, kot)

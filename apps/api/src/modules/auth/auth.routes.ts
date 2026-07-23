@@ -27,6 +27,12 @@ import {
   setMyPIN,
   verifyManagerPIN,
   lookupTenantsByPhone,
+  getMySessions,
+  revokeSession,
+  revokeAllOtherSessions,
+  getLoginHistory,
+  getNotifPrefs,
+  updateNotifPrefs,
 } from './auth.service.js'
 
 function validate<S extends z.ZodTypeAny>(schema: S, data: unknown): z.output<S> {
@@ -113,6 +119,46 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const body = validate(SetPINBody, request.body)
     await setMyPIN(request.user.sub, body)
     return ok(reply, { message: 'PIN updated successfully.' })
+  })
+
+  // ─── Active sessions for current user ────────────────────────────────────────
+  app.get('/me/sessions', { preHandler: [authenticate] }, async (request, reply) => {
+    return ok(reply, await getMySessions(request.user.sub, request.user.sessionId))
+  })
+
+  // ─── Revoke a specific session ─────────────────────────────────────────────
+  app.delete('/me/sessions/:sessionId', { preHandler: [authenticate] }, async (request, reply) => {
+    const { sessionId } = request.params as { sessionId: string }
+    await revokeSession(request.user.sub, sessionId, request.user.sessionId)
+    return ok(reply, { message: 'Session revoked.' })
+  })
+
+  // ─── Sign out of all other sessions ───────────────────────────────────────
+  app.delete('/me/sessions', { preHandler: [authenticate] }, async (request, reply) => {
+    return ok(reply, await revokeAllOtherSessions(request.user.sub, request.user.sessionId))
+  })
+
+  // ─── Login history (last 20 events) ───────────────────────────────────────
+  app.get('/me/login-history', { preHandler: [authenticate] }, async (request, reply) => {
+    return ok(reply, await getLoginHistory(request.user.sub, request.user.tenantId))
+  })
+
+  // ─── Notification preferences ──────────────────────────────────────────────
+  app.get('/me/notification-prefs', { preHandler: [authenticate] }, async (request, reply) => {
+    return ok(reply, await getNotifPrefs(request.user.sub))
+  })
+
+  app.patch('/me/notification-prefs', { preHandler: [authenticate] }, async (request, reply) => {
+    const body = validate(
+      z.object({
+        notifOrderAlerts:  z.boolean().optional(),
+        notifLowStock:     z.boolean().optional(),
+        notifDailyReport:  z.boolean().optional(),
+        notifLoginAlert:   z.boolean().optional(),
+      }),
+      request.body,
+    )
+    return ok(reply, await updateNotifPrefs(request.user.sub, body))
   })
 
   // ─── Verify manager/owner PIN (discount approval gate) ──────────────────────

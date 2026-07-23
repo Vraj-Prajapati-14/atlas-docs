@@ -354,13 +354,119 @@ export async function logout(input: RefreshInput): Promise<void> {
   })
 }
 
-export async function getMe(userId: string): Promise<AuthUser> {
+export interface ProfileMeDetailed extends AuthUser {
+  lastLoginAt: Date | null
+  passwordChangedAt: Date | null
+  hasPIN: boolean
+  hasPassword: boolean
+}
+
+export interface SessionItem {
+  id: string
+  deviceInfo: string | null
+  ipAddress: string | null
+  createdAt: Date
+  expiresAt: Date
+  isCurrent: boolean
+}
+
+export interface LoginHistoryItem {
+  id: string
+  action: string
+  ipAddress: string | null
+  createdAt: Date
+  method: string | null
+}
+
+export async function getMe(userId: string): Promise<ProfileMeDetailed> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, tenantId: true, name: true, email: true, phone: true, role: true },
+    select: {
+      id: true, tenantId: true, name: true, email: true, phone: true, role: true,
+      lastLoginAt: true, passwordChangedAt: true, pin: true, passwordHash: true,
+    },
+  })
+  if (!user) throw new NotFoundError('User', userId)
+  return {
+    id: user.id,
+    tenantId: user.tenantId,
+    name: user.name,
+    email: user.email,
+    phone: user.phone,
+    role: user.role,
+    lastLoginAt: user.lastLoginAt,
+    passwordChangedAt: user.passwordChangedAt,
+    hasPIN: user.pin !== null,
+    hasPassword: user.passwordHash !== null,
+  }
+}
+
+export async function getMySessions(userId: string, currentSessionId: string): Promise<SessionItem[]> {
+  const sessions = await prisma.userSession.findMany({
+    where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
+    select: { id: true, deviceInfo: true, ipAddress: true, createdAt: true, expiresAt: true },
+    orderBy: { createdAt: 'desc' },
+  })
+  return sessions.map((s) => ({ ...s, isCurrent: s.id === currentSessionId }))
+}
+
+export async function revokeSession(userId: string, sessionId: string, currentSessionId: string): Promise<void> {
+  if (sessionId === currentSessionId) {
+    throw new BadRequestError('Cannot revoke the current session — use logout instead.')
+  }
+  const session = await prisma.userSession.findUnique({
+    where: { id: sessionId },
+    select: { id: true, userId: true, revokedAt: true },
+  })
+  if (!session || session.userId !== userId) throw new NotFoundError('Session', sessionId)
+  if (session.revokedAt !== null) return
+  await prisma.userSession.update({ where: { id: sessionId }, data: { revokedAt: new Date() } })
+}
+
+export async function revokeAllOtherSessions(userId: string, currentSessionId: string): Promise<{ count: number }> {
+  const result = await prisma.userSession.updateMany({
+    where: { userId, revokedAt: null, expiresAt: { gt: new Date() }, id: { not: currentSessionId } },
+    data: { revokedAt: new Date() },
+  })
+  return { count: result.count }
+}
+
+export interface NotifPrefs {
+  notifOrderAlerts: boolean
+  notifLowStock:    boolean
+  notifDailyReport: boolean
+  notifLoginAlert:  boolean
+}
+
+export async function getNotifPrefs(userId: string): Promise<NotifPrefs> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { notifOrderAlerts: true, notifLowStock: true, notifDailyReport: true, notifLoginAlert: true },
   })
   if (!user) throw new NotFoundError('User', userId)
   return user
+}
+
+export async function updateNotifPrefs(userId: string, prefs: Partial<NotifPrefs>): Promise<NotifPrefs> {
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: prefs,
+    select: { notifOrderAlerts: true, notifLowStock: true, notifDailyReport: true, notifLoginAlert: true },
+  })
+  return user
+}
+
+export async function getLoginHistory(userId: string, tenantId: string): Promise<LoginHistoryItem[]> {
+  const logs = await prisma.auditLog.findMany({
+    where: { tenantId, userId, action: { in: ['LOGIN_SUCCESS', 'LOGIN_FAILED'] } },
+    select: { id: true, action: true, ipAddress: true, createdAt: true, newValues: true },
+    orderBy: { createdAt: 'desc' },
+    take: 20,
+  })
+  return logs.map((l) => {
+    const meta = (l.newValues ?? {}) as Record<string, string>
+    return { id: l.id, action: l.action, ipAddress: l.ipAddress, createdAt: l.createdAt, method: meta.method ?? null }
+  })
 }
 
 export async function updateMe(userId: string, tenantId: string, input: UpdateMeInput): Promise<AuthUser> {
