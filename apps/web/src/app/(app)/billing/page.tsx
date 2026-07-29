@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRequireRole } from '@/hooks/use-require-role'
 import { Receipt, CreditCard, X, ChevronRight, Trash2, Printer, Star, Lock, ArrowLeft } from 'lucide-react'
 import { useOrders } from '@/hooks/use-orders'
 import { useBills, useBill, useGenerateBill, useRecordPayment, useVoidBill, useVerifyManagerPIN } from '@/hooks/use-billing'
@@ -38,6 +39,7 @@ const PAYMENT_METHODS: { value: PaymentMethod; label: string; icon: string }[] =
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BillingPage() {
+  const allowed = useRequireRole(['OWNER', 'MANAGER', 'CASHIER'])
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const [selectedBillId, setSelectedBillId] = useState<string | null>(null)
   const [tab, setTab] = useState<'to-bill' | 'bills'>('to-bill')
@@ -60,6 +62,8 @@ export default function BillingPage() {
   const redemptionRate    = settingsData?.settings?.loyaltyRedemptionRate ?? 100
 
   const [mobilePanel, setMobilePanel] = useState<'list' | 'detail'>('list')
+
+  if (!allowed) return null
 
   const handleSelectOrder = (order: Order) => {
     setSelectedOrderId(order.id)

@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { created, noContent, ok, paginated } from '../../shared/response.js'
 import { ValidationError } from '../../shared/errors.js'
 import { authenticate } from '../../shared/middleware/authenticate.js'
+import { requireRole } from '../../shared/middleware/require-role.js'
+import { UserRole } from '@atlas/types'
 import {
   AddItemsBody,
   CreateOrderBody,
@@ -34,6 +36,9 @@ function validate<S extends z.ZodTypeAny>(schema: S, data: unknown): z.output<S>
   if (!result.success) throw new ValidationError('Invalid request', result.error.errors)
   return result.data as z.output<S>
 }
+
+// OWNER / MANAGER / CASHIER can cancel orders and remove items
+const CANCEL_GUARD  = [authenticate, requireRole(UserRole.OWNER, UserRole.MANAGER, UserRole.CASHIER)]
 
 export async function ordersRoutes(app: FastifyInstance): Promise<void> {
   // ─── Create order ────────────────────────────────────────────────────────────
@@ -82,7 +87,7 @@ export async function ordersRoutes(app: FastifyInstance): Promise<void> {
   })
 
   // ─── Remove order item ───────────────────────────────────────────────────────
-  app.delete('/:id/items/:itemId', { preHandler: authenticate }, async (request, reply) => {
+  app.delete('/:id/items/:itemId', { preHandler: CANCEL_GUARD }, async (request, reply) => {
     const { id, itemId } = validate(OrderItemParams, request.params)
     await removeItem(request.user.tenantId, id, itemId)
     return noContent(reply)
@@ -103,7 +108,7 @@ export async function ordersRoutes(app: FastifyInstance): Promise<void> {
   })
 
   // ─── Cancel order ────────────────────────────────────────────────────────────
-  app.post('/:id/cancel', { preHandler: authenticate }, async (request, reply) => {
+  app.post('/:id/cancel', { preHandler: CANCEL_GUARD }, async (request, reply) => {
     const { id } = validate(OrderIdParam, request.params)
     const order = await cancelOrder(request.user.tenantId, id)
     return ok(reply, order)

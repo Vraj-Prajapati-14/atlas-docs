@@ -1,7 +1,8 @@
 'use client'
 
 import { useRequireRole } from '@/hooks/use-require-role'
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useAuthStore } from '@/lib/auth-store'
 import { BarChart3, TrendingUp, ShoppingBag, Receipt, Package, RefreshCw, Download } from 'lucide-react'
 import {
   useDailyReport,
@@ -533,8 +534,18 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
 ]
 
 export default function ReportsPage() {
-  const allowed = useRequireRole(['OWNER', 'MANAGER', 'INVENTORY_MANAGER'])
+  const allowed = useRequireRole(['OWNER', 'MANAGER', 'CASHIER', 'INVENTORY_MANAGER'])
+  const role = useAuthStore((s) => s.user?.role)
+  const visibleTabs = useMemo(
+    () => role === 'INVENTORY_MANAGER' ? TABS.filter((t) => t.id === 'inventory') : TABS,
+    [role],
+  )
   const [tab, setTab] = useState<Tab>('daily')
+
+  useEffect(() => {
+    if (role === 'INVENTORY_MANAGER') setTab('inventory')
+  }, [role])
+
   if (!allowed) return null
 
   return (
@@ -549,7 +560,7 @@ export default function ReportsPage() {
 
       {/* Tab bar */}
       <div className="flex items-center gap-1 px-6 pt-4 pb-0 shrink-0 border-b border-border bg-background overflow-x-auto">
-        {TABS.map(({ id, label, icon: Icon }) => (
+        {visibleTabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             type="button"

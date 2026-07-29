@@ -162,7 +162,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   })
 
   // ─── Verify manager/owner PIN (discount approval gate) ──────────────────────
-  app.post('/verify-manager-pin', { preHandler: [authenticate] }, async (request, reply) => {
+  app.post('/verify-manager-pin', { preHandler: [authenticate], config: { rateLimit: STRICT_RATE_LIMIT } }, async (request, reply) => {
     const { pin } = validate(z.object({ pin: z.string().length(4).regex(/^\d{4}$/) }), request.body)
     return ok(reply, await verifyManagerPIN(request.user.tenantId, pin))
   })

@@ -128,12 +128,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     <aside
       className={cn(
         'flex flex-col h-full border-r border-border bg-background',
-        // Mobile: fixed slide-in
+        // Always a fixed overlay drawer — topbar handles desktop navigation
         'fixed inset-y-0 left-0 z-50 w-[260px]',
         'transition-transform duration-300 ease-in-out will-change-transform',
-        isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full',
-        // Desktop: static sidebar
-        'lg:static lg:translate-x-0 lg:w-[240px] lg:shrink-0 lg:shadow-none',
+        isOpen ? 'translate-x-0 shadow-2xl shadow-black/30' : '-translate-x-full',
       )}
     >
       {/* ── Logo ────────────────────────────────────────────────────────────── */}
@@ -154,7 +152,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           type="button"
           onClick={onClose}
           aria-label="Close navigation"
-          className="flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-background-hover transition-colors lg:hidden"
+          className="flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-background-hover transition-colors"
         >
           <X size={16} />
         </button>

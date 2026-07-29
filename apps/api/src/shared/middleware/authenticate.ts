@@ -12,14 +12,23 @@ export async function authenticate(
     throw new UnauthorizedError('Invalid or expired token')
   }
 
-  // After token is verified, check tenant plan status
-  const tenantId = (request.user as { tenantId?: string }).tenantId
+  // After token is verified, check user isActive and tenant plan status
+  const { tenantId, sub: userId } = request.user as { tenantId?: string; sub?: string }
   if (!tenantId) return
 
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: tenantId },
-    select: { planStatus: true, isActive: true },
-  })
+  const [user, tenant] = await Promise.all([
+    userId
+      ? prisma.user.findUnique({ where: { id: userId }, select: { isActive: true } })
+      : null,
+    prisma.tenant.findUnique({ where: { id: tenantId }, select: { planStatus: true, isActive: true } }),
+  ])
+
+  if (user && !user.isActive) {
+    return reply.code(401).send({
+      success: false,
+      error: { code: 'USER_INACTIVE', message: 'Your account has been deactivated. Contact your manager.' },
+    })
+  }
 
   if (!tenant || !tenant.isActive) {
     return reply.code(402).send({

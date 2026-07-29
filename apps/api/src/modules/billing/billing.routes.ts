@@ -26,33 +26,35 @@ function validate<S extends z.ZodTypeAny>(schema: S, data: unknown): z.output<S>
   return result.data as z.output<S>
 }
 
+// OWNER / MANAGER / CASHIER can generate bills and record payments
+const BILLING_GUARD = [authenticate, requireRole(UserRole.OWNER, UserRole.MANAGER, UserRole.CASHIER)]
 // Only OWNER/MANAGER can void bills
-const VOID_GUARD = [authenticate, requireRole(UserRole.OWNER, UserRole.MANAGER)]
+const VOID_GUARD    = [authenticate, requireRole(UserRole.OWNER, UserRole.MANAGER)]
 
 export async function billingRoutes(app: FastifyInstance): Promise<void> {
   // ─── Generate bill ────────────────────────────────────────────────────────────
-  app.post('/', { preHandler: authenticate }, async (request, reply) => {
+  app.post('/', { preHandler: BILLING_GUARD }, async (request, reply) => {
     const body = validate(GenerateBillBody, request.body)
     const bill = await generateBill(request.user.tenantId, body)
     return created(reply, bill)
   })
 
   // ─── List bills ───────────────────────────────────────────────────────────────
-  app.get('/', { preHandler: authenticate }, async (request, reply) => {
+  app.get('/', { preHandler: BILLING_GUARD }, async (request, reply) => {
     const query = validate(ListBillsQuery, request.query)
     const { bills, pagination } = await listBills(request.user.tenantId, query)
     return paginated(reply, bills, pagination)
   })
 
   // ─── Get bill / receipt ───────────────────────────────────────────────────────
-  app.get('/:id', { preHandler: authenticate }, async (request, reply) => {
+  app.get('/:id', { preHandler: BILLING_GUARD }, async (request, reply) => {
     const { id } = validate(BillIdParam, request.params)
     const bill = await getBill(request.user.tenantId, id)
     return ok(reply, bill)
   })
 
   // ─── Record payment ───────────────────────────────────────────────────────────
-  app.post('/:id/payments', { preHandler: authenticate }, async (request, reply) => {
+  app.post('/:id/payments', { preHandler: BILLING_GUARD }, async (request, reply) => {
     const { id } = validate(BillIdParam, request.params)
     const body = validate(RecordPaymentBody, request.body)
     const bill = await recordPayment(request.user.tenantId, id, body)

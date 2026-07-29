@@ -33,7 +33,9 @@ function validate<S extends z.ZodTypeAny>(schema: S, data: unknown): z.output<S>
   return result.data as z.output<S>
 }
 
-const OWNER_GUARD = [authenticate, requireRole(UserRole.OWNER, UserRole.MANAGER)]
+const OWNER_GUARD    = [authenticate, requireRole(UserRole.OWNER, UserRole.MANAGER)]
+// CASHIER can also accept and advance aggregator orders
+const CASHIER_GUARD  = [authenticate, requireRole(UserRole.OWNER, UserRole.MANAGER, UserRole.CASHIER)]
 
 export async function aggregatorsRoutes(app: FastifyInstance): Promise<void> {
   // ─── Credentials ──────────────────────────────────────────────────────────
@@ -71,17 +73,17 @@ export async function aggregatorsRoutes(app: FastifyInstance): Promise<void> {
     return ok(reply, await getAggregatorOrder(request.user.tenantId, id))
   })
 
-  app.post('/orders/:id/accept', { preHandler: authenticate }, async (request, reply) => {
+  app.post('/orders/:id/accept', { preHandler: CASHIER_GUARD }, async (request, reply) => {
     const { id } = validate(AggregatorOrderIdParam, request.params)
     return ok(reply, await acceptOrder(request.user.tenantId, id))
   })
 
-  app.post('/orders/:id/dispatch', { preHandler: authenticate }, async (request, reply) => {
+  app.post('/orders/:id/dispatch', { preHandler: CASHIER_GUARD }, async (request, reply) => {
     const { id } = validate(AggregatorOrderIdParam, request.params)
     return ok(reply, await dispatchOrder(request.user.tenantId, id))
   })
 
-  app.post('/orders/:id/deliver', { preHandler: authenticate }, async (request, reply) => {
+  app.post('/orders/:id/deliver', { preHandler: CASHIER_GUARD }, async (request, reply) => {
     const { id } = validate(AggregatorOrderIdParam, request.params)
     return ok(reply, await deliverOrder(request.user.tenantId, id))
   })
