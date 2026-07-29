@@ -194,6 +194,21 @@ enum StaffNotifTargetType {
   SPECIFIC_USER
 }
 
+enum DeviceType {
+  POS
+  KDS
+  CAPTAIN
+  MANAGER
+  PRINT_AGENT
+  OWNER_MOBILE
+}
+
+enum DeviceDisplayMode {
+  STANDARD
+  KIOSK
+  KDS_DISPLAY
+}
+
 // ─────────────────────────────────────────────
 // TENANT (Restaurant / Business)
 // ─────────────────────────────────────────────
@@ -260,6 +275,8 @@ model Tenant {
   subscriptionPayments SubscriptionPayment[]
   supportTickets       SupportTicket[]
   staffNotifications   StaffNotification[]
+  devices              Device[]
+  rolePermissions      RolePermission[]
 
   @@index([slug])
   @@index([phone])
@@ -1020,6 +1037,18 @@ model TenantSettings {
   loyaltyEnabled              Boolean  @default(false)
   loyaltyPointsPerRupee       Int      @default(1)   // points earned per ₹1 spent
   loyaltyRedemptionRate       Int      @default(100) // points needed per ₹1 of discount
+
+  // Feature flags — set during onboarding wizard, controls module visibility
+  enableFloorPlan             Boolean  @default(true)
+  enableKDS                   Boolean  @default(true)
+  enableCaptainApp            Boolean  @default(false)
+  enableReservations          Boolean  @default(false)
+  enableQROrdering            Boolean  @default(false)
+  enableInventory             Boolean  @default(false)
+  enableCRM                   Boolean  @default(false)
+  enableOnlineOrdering        Boolean  @default(false)
+  enableDelivery              Boolean  @default(false)
+
   updatedAt                   DateTime @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -1063,6 +1092,11 @@ model TenantOnboardingStep {
   staffDone             Boolean   @default(false)
   paymentSetupDone      Boolean   @default(false)   // payment methods + printer IPs
   firstOrderDone        Boolean   @default(false)   // auto-marked on first order
+
+  // Phase 0 wizard steps
+  outletTypeDone        Boolean   @default(false)   // Step 1: outlet type selection
+  featuresDone          Boolean   @default(false)   // Step 2: feature selection
+  devicesDone           Boolean   @default(false)   // Final step: device setup
 
   // Legacy (kept for backward compat)
   outletDone            Boolean   @default(false)
@@ -1258,4 +1292,61 @@ model StaffNotificationRead {
   @@id([notificationId, userId])
   @@index([userId])
   @@map("staff_notification_reads")
+}
+
+// ─────────────────────────────────────────────
+// DEVICE (registered POS / KDS / Captain devices)
+// ─────────────────────────────────────────────
+
+model Device {
+  id         String     @id @default(cuid())
+  tenantId   String
+  name       String
+  type       DeviceType
+  token      String     @unique
+  defaultUrl String?    // e.g. "/pos", "/kds", "/floor"
+  floorId    String?    // preferred floor for this device
+  lastSeenAt DateTime?
+  lastSeenIp String?
+  isActive   Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  settings DeviceSettings?
+
+  @@index([tenantId])
+  @@map("devices")
+}
+
+model DeviceSettings {
+  id            String            @id @default(cuid())
+  deviceId      String            @unique
+  autoKotPrint  Boolean           @default(true)
+  autoBillPrint Boolean           @default(true)
+  soundAlerts   Boolean           @default(true)
+  displayMode   DeviceDisplayMode @default(STANDARD)
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@map("device_settings")
+}
+
+// ─────────────────────────────────────────────
+// ROLE PERMISSIONS (custom per-tenant permission overrides)
+// ─────────────────────────────────────────────
+
+model RolePermission {
+  id         String    @id @default(cuid())
+  tenantId   String
+  role       UserRole
+  permission String    // e.g. "BILLING:discount", "ORDERS:cancel", "REPORTS:sales"
+  grantedBy  String    // userId of the OWNER who made this change
+  createdAt  DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, role, permission])
+  @@index([tenantId, role])
+  @@map("role_permissions")
 }
