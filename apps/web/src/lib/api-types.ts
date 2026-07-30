@@ -713,3 +713,49 @@ export interface PaginationMeta {
   hasNext: boolean
   hasPrev: boolean
 }
+
+// ─── Devices ─────────────────────────────────────────────────────────────────
+
+export type DeviceType        = 'POS' | 'KDS' | 'CAPTAIN' | 'MANAGER' | 'PRINT_AGENT' | 'OWNER_MOBILE'
+export type DeviceDisplayMode = 'STANDARD' | 'KIOSK' | 'KDS_DISPLAY'
+
+export interface DeviceSettings {
+  id:            string
+  deviceId:      string
+  autoKotPrint:  boolean
+  autoBillPrint: boolean
+  soundAlerts:   boolean
+  displayMode:   DeviceDisplayMode
+}
+
+export interface Device {
+  id:          string
+  tenantId:    string
+  name:        string
+  type:        DeviceType
+  token:       string
+  defaultUrl:  string | null
+  floorId:     string | null
+  lastSeenAt:  string | null
+  lastSeenIp:  string | null
+  isActive:    boolean
+  createdAt:   string
+  updatedAt:   string
+  settings:    DeviceSettings | null
+}
+
+// ─── Permissions ─────────────────────────────────────────────────────────────
+
+export type ConfigurableRole = 'MANAGER' | 'CASHIER' | 'WAITER' | 'CHEF' | 'INVENTORY_MANAGER'
+
+// Granted permissions grouped by role — shape returned by GET /permissions
+export type PermissionsByRole = Partial<Record<ConfigurableRole, string[]>>
+
+export interface RolePermissionRow {
+  id:         string
+  tenantId:   string
+  role:       ConfigurableRole
+  permission: string
+  grantedBy:  string
+  createdAt:  string
+}

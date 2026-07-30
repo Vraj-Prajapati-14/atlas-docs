@@ -39,6 +39,8 @@ async function tryRefresh(): Promise<boolean> {
 
       localStorage.setItem('atlas_token', json.data.accessToken)
       localStorage.setItem('atlas_refresh', json.data.refreshToken)
+      // Keep the auth cookie in sync so middleware can decode the updated JWT claims
+      document.cookie = `atlas_auth=${json.data.accessToken}; path=/; max-age=${30 * 24 * 3600}; SameSite=Lax`
       return true
     } catch {
       return false
@@ -97,6 +99,11 @@ async function request<T>(
   }
 
   return json.data
+}
+
+/** Force a token refresh and update the auth cookie. Used after onboarding completes. */
+export async function refreshAuthToken(): Promise<boolean> {
+  return tryRefresh()
 }
 
 export const apiClient = {

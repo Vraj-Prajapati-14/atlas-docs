@@ -15,6 +15,16 @@ export const UpdateSettingsBody = z.object({
   loyaltyEnabled:             z.boolean().optional(),
   loyaltyPointsPerRupee:      z.number().int().min(1).max(100).optional(),
   loyaltyRedemptionRate:      z.number().int().min(1).max(10000).optional(),
+  // Feature flags — set during onboarding wizard
+  enableFloorPlan:            z.boolean().optional(),
+  enableKDS:                  z.boolean().optional(),
+  enableCaptainApp:           z.boolean().optional(),
+  enableReservations:         z.boolean().optional(),
+  enableQROrdering:           z.boolean().optional(),
+  enableInventory:            z.boolean().optional(),
+  enableCRM:                  z.boolean().optional(),
+  enableOnlineOrdering:       z.boolean().optional(),
+  enableDelivery:             z.boolean().optional(),
 })
 
 export const UpdateOutletBody = z.object({
@@ -29,6 +39,7 @@ export const UpdateOutletBody = z.object({
 
 export const UpdateTenantBody = z.object({
   name:           z.string().trim().min(2).max(200).optional(),
+  type:           z.enum(['QSR', 'CASUAL_DINING', 'FINE_DINING', 'CAFE', 'BAR', 'FOOD_TRUCK', 'CLOUD_KITCHEN', 'BAKERY', 'DHABA', 'SWEET_SHOP']).optional(),
   phone:          z.string().regex(/^[6-9]\d{9}$/).optional(),
   email:          z.string().email().nullable().optional(),
   website:        z.string().url().nullable().optional(),

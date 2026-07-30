@@ -20,6 +20,8 @@ function validate<S extends z.ZodTypeAny>(schema: S, data: unknown): z.output<S>
 }
 
 const UpdateStepsBody = z.object({
+  outletTypeDone:        z.boolean().optional(),
+  featuresDone:          z.boolean().optional(),
   brandingDone:          z.boolean().optional(),
   restaurantProfileDone: z.boolean().optional(),
   outletDone:            z.boolean().optional(),
@@ -28,6 +30,7 @@ const UpdateStepsBody = z.object({
   staffDone:             z.boolean().optional(),
   paymentSetupDone:      z.boolean().optional(),
   firstOrderDone:        z.boolean().optional(),
+  devicesDone:           z.boolean().optional(),
 })
 
 const SkipBody = z.object({

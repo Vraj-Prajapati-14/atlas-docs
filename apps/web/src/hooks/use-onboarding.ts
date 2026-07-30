@@ -6,16 +6,19 @@ import { apiClient } from '@/lib/api-client'
 export interface OnboardingSteps {
   id: string
   tenantId: string
-  // Wizard steps (boolean = actually completed; skippedSteps tracks intentional skips)
+  // Phase 0 wizard steps
+  outletTypeDone:        boolean
+  featuresDone:          boolean
   brandingDone:          boolean
   restaurantProfileDone: boolean
-  menuDone:              boolean
   tablesDone:            boolean
+  menuDone:              boolean
   staffDone:             boolean
   paymentSetupDone:      boolean
-  firstOrderDone:        boolean
-  // Legacy
+  devicesDone:           boolean
+  // Legacy / auto-tracked
   outletDone:            boolean
+  firstOrderDone:        boolean
   // Tracking
   skippedSteps:          string[] | null
   teamAssistedMode:      boolean
@@ -23,13 +26,15 @@ export interface OnboardingSteps {
 }
 
 export type WizardStepKey =
+  | 'outletTypeDone'
+  | 'featuresDone'
   | 'brandingDone'
   | 'restaurantProfileDone'
-  | 'menuDone'
   | 'tablesDone'
+  | 'menuDone'
   | 'staffDone'
   | 'paymentSetupDone'
-  | 'firstOrderDone'
+  | 'devicesDone'
 
 export function stepIsResolved(steps: OnboardingSteps, key: WizardStepKey): boolean {
   const skipped = steps.skippedSteps ?? []
@@ -47,7 +52,11 @@ export function useOnboardingSteps() {
 export function useUpdateOnboardingSteps() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: Partial<Omit<OnboardingSteps, 'id' | 'tenantId' | 'completedAt' | 'skippedSteps' | 'teamAssistedMode'>>) =>
+    mutationFn: (data: Partial<Pick<OnboardingSteps,
+      'outletTypeDone' | 'featuresDone' | 'brandingDone' | 'restaurantProfileDone' |
+      'tablesDone' | 'menuDone' | 'staffDone' | 'paymentSetupDone' | 'devicesDone' |
+      'firstOrderDone'
+    >>) =>
       apiClient.patch<OnboardingSteps>('/api/v1/onboarding', data),
     onSuccess(steps) {
       qc.setQueryData(['onboarding-steps'], steps)

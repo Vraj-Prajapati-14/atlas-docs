@@ -1,66 +1,12 @@
 'use client'
 
-import { AlertTriangle, TrendingUp, Users, BarChart3, ShoppingBag, CheckCircle2, Circle, ChevronRight } from 'lucide-react'
-import Link from 'next/link'
+import { AlertTriangle, BarChart3, ShoppingBag } from 'lucide-react'
 import { useDailyReport } from '@/hooks/use-reports'
 import { useInventoryValuation } from '@/hooks/use-reports'
 import { useTables } from '@/hooks/use-tables'
 import { useAuthStore } from '@/lib/auth-store'
-import { useOnboardingSteps } from '@/hooks/use-onboarding'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-
-// ─── Onboarding checklist ─────────────────────────────────────────────────────
-
-function OnboardingChecklist() {
-  const { data: steps } = useOnboardingSteps()
-
-  if (!steps || steps.completedAt) return null
-
-  const items = [
-    { label: 'Complete restaurant profile', done: steps.restaurantProfileDone, href: '/onboarding' },
-    { label: 'Configure your outlet', done: steps.outletDone, href: '/settings' },
-    { label: 'Add your menu items', done: steps.menuDone, href: '/menu' },
-    { label: 'Set up table layout', done: steps.tablesDone, href: '/floor' },
-    { label: 'Invite staff members', done: steps.staffDone, href: '/staff' },
-    { label: 'Place your first order', done: steps.firstOrderDone, href: '/floor' },
-  ]
-  const doneCount = items.filter((i) => i.done).length
-  const pct = Math.round((doneCount / items.length) * 100)
-
-  return (
-    <div className="rounded-xl border border-primary-500/30 bg-primary-500/5 p-5">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <p className="text-sm font-bold text-foreground">Get started — {doneCount}/{items.length} complete</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Finish setup to get the most out of Atlas.</p>
-        </div>
-        <Link href="/onboarding" className="text-xs text-primary-500 font-semibold flex items-center gap-0.5 hover:underline">
-          Continue <ChevronRight size={12} />
-        </Link>
-      </div>
-      <div className="w-full bg-border rounded-full h-1.5 mb-4">
-        <div className="bg-primary-500 h-1.5 rounded-full transition-all" style={{ width: `${pct}%` }} />
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-        {items.map((item) => (
-          <Link key={item.label} href={item.href} className="flex items-center gap-2 group">
-            {item.done
-              ? <CheckCircle2 size={14} className="text-success shrink-0" />
-              : <Circle size={14} className="text-muted-foreground/40 shrink-0" />
-            }
-            <span className={cn(
-              'text-xs transition-colors',
-              item.done ? 'text-muted-foreground line-through' : 'text-foreground group-hover:text-primary-500',
-            )}>
-              {item.label}
-            </span>
-          </Link>
-        ))}
-      </div>
-    </div>
-  )
-}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -129,9 +75,6 @@ export default function DashboardPage() {
         <h2 className="text-xl font-bold text-foreground">{greeting()}, {user?.name.split(' ')[0]}</h2>
         <p className="text-sm text-muted-foreground mt-0.5">{"Here's what's happening at your restaurant today."}</p>
       </div>
-
-      {/* Onboarding checklist — disappears once complete */}
-      <OnboardingChecklist />
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

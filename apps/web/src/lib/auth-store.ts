@@ -30,8 +30,9 @@ export const useAuthStore = create<AuthState>()(
         // api-client reads atlas_token directly from localStorage
         localStorage.setItem('atlas_token', accessToken)
         localStorage.setItem('atlas_refresh', refreshToken)
-        // presence cookie for Next.js middleware (not httpOnly — client-set)
-        document.cookie = `atlas_auth=1; path=/; max-age=${AUTH_COOKIE_TTL}; SameSite=Lax`
+        // Store the JWT in the cookie so Next.js middleware can decode claims
+        // (e.g. onboardingCompleted) without a DB round-trip
+        document.cookie = `atlas_auth=${accessToken}; path=/; max-age=${AUTH_COOKIE_TTL}; SameSite=Lax`
         set({ user })
       },
 

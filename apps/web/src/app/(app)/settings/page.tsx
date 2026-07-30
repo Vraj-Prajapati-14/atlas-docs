@@ -2,13 +2,15 @@
 
 import { useRequireRole } from '@/hooks/use-require-role'
 import { useEffect, useState } from 'react'
-import { Settings, Building2, Sliders, Save, Star, Lock } from 'lucide-react'
+import { Settings, Building2, Sliders, Save, Star, Lock, Printer, Plus, RefreshCw, PowerOff, Copy, Check, ChevronDown, ChevronUp, Shield } from 'lucide-react'
 import { useSettings, useUpdateSettings, useUpdateOutlet, useUpdateTenant } from '@/hooks/use-settings'
+import { useDevices, useCreateDevice, useDeactivateDevice, useRotateDeviceToken, useUpdateDeviceSettings } from '@/hooks/use-devices'
+import { useAllPermissions, useGrantPermission, useRevokePermission } from '@/hooks/use-permissions'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/auth-store'
-import type { TenantSettings, TenantInfo, OutletInfo } from '@/lib/api-types'
+import type { TenantSettings, TenantInfo, OutletInfo, Device, DeviceType, DeviceDisplayMode, ConfigurableRole } from '@/lib/api-types'
 
 // ─── Field helpers ────────────────────────────────────────────────────────────
 
@@ -374,6 +376,436 @@ function POSSection({ settings, disabled }: { settings: TenantSettings | null; d
   )
 }
 
+// ─── Devices section ──────────────────────────────────────────────────────────
+
+const DEVICE_TYPE_LABELS: Record<DeviceType, string> = {
+  POS:          'POS Terminal',
+  KDS:          'Kitchen Display',
+  CAPTAIN:      'Captain App',
+  MANAGER:      'Manager App',
+  PRINT_AGENT:  'Print Agent',
+  OWNER_MOBILE: 'Owner Mobile',
+}
+
+const DISPLAY_MODE_LABELS: Record<DeviceDisplayMode, string> = {
+  STANDARD:    'Standard',
+  KIOSK:       'Kiosk',
+  KDS_DISPLAY: 'KDS Display',
+}
+
+function CopyButton({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false)
+  function handleCopy() {
+    void navigator.clipboard.writeText(value)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <button onClick={handleCopy} className="p-1 rounded hover:bg-background-hover transition-colors" title="Copy token">
+      {copied ? <Check size={12} className="text-success" /> : <Copy size={12} className="text-muted-foreground" />}
+    </button>
+  )
+}
+
+function DeviceRow({ device }: { device: Device }) {
+  const [expanded, setExpanded] = useState(false)
+  const deactivate    = useDeactivateDevice()
+  const rotateToken   = useRotateDeviceToken()
+  const updateSettings = useUpdateDeviceSettings()
+
+  const s = device.settings
+
+  return (
+    <div className="border border-border rounded-lg overflow-hidden">
+      {/* Row header */}
+      <div className="flex items-center gap-3 px-4 py-3 bg-background">
+        <div className={cn(
+          'w-2 h-2 rounded-full shrink-0',
+          device.isActive ? 'bg-success' : 'bg-muted-foreground',
+        )} />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-foreground truncate">{device.name}</p>
+          <p className="text-[11px] text-muted-foreground">{DEVICE_TYPE_LABELS[device.type]}</p>
+        </div>
+        <div className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground bg-background-card border border-border rounded px-2 py-0.5 max-w-[140px] truncate">
+          <span className="truncate">{device.token.slice(0, 16)}…</span>
+          <CopyButton value={device.token} />
+        </div>
+        <button
+          onClick={() => setExpanded(v => !v)}
+          className="p-1 text-muted-foreground hover:text-foreground transition-colors ml-1"
+        >
+          {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+      </div>
+
+      {/* Expanded settings */}
+      {expanded && (
+        <div className="border-t border-border bg-background-card px-4 py-4 space-y-4">
+          {/* Token row */}
+          <div className="flex items-center gap-2">
+            <div className="flex-1 font-mono text-xs text-muted-foreground bg-background border border-border rounded px-2 py-1.5 truncate">
+              {device.token}
+            </div>
+            <CopyButton value={device.token} />
+            <button
+              onClick={() => rotateToken.mutate(device.id)}
+              disabled={rotateToken.isPending}
+              className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border border-border text-foreground hover:border-primary-500 hover:text-primary-500 transition-colors disabled:opacity-50"
+              title="Rotate token"
+            >
+              {rotateToken.isPending ? <Spinner size="xs" /> : <RefreshCw size={11} />}
+              Rotate
+            </button>
+          </div>
+
+          {/* Device settings toggles */}
+          {s && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {([
+                { key: 'autoKotPrint',  label: 'Auto KOT Print' },
+                { key: 'autoBillPrint', label: 'Auto Bill Print' },
+                { key: 'soundAlerts',   label: 'Sound Alerts' },
+              ] as const).map(({ key, label }) => (
+                <div key={key} className="flex items-center justify-between">
+                  <span className="text-sm text-foreground">{label}</span>
+                  <Toggle
+                    checked={s[key]}
+                    onChange={v => updateSettings.mutate({ id: device.id, [key]: v })}
+                  />
+                </div>
+              ))}
+
+              <div className="flex items-center justify-between sm:col-span-2">
+                <span className="text-sm text-foreground">Display Mode</span>
+                <select
+                  value={s.displayMode}
+                  onChange={e => updateSettings.mutate({ id: device.id, displayMode: e.target.value as DeviceDisplayMode })}
+                  className="text-xs bg-background border border-border rounded px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary-500"
+                >
+                  {(Object.keys(DISPLAY_MODE_LABELS) as DeviceDisplayMode[]).map(m => (
+                    <option key={m} value={m}>{DISPLAY_MODE_LABELS[m]}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Last seen */}
+          {device.lastSeenAt && (
+            <p className="text-[11px] text-muted-foreground">
+              Last seen: {new Date(device.lastSeenAt).toLocaleString()}
+              {device.lastSeenIp ? ` · ${device.lastSeenIp}` : ''}
+            </p>
+          )}
+
+          {/* Deactivate */}
+          {device.isActive && (
+            <div className="pt-2 border-t border-border flex justify-end">
+              <button
+                onClick={() => deactivate.mutate(device.id)}
+                disabled={deactivate.isPending}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-danger/40 text-danger hover:bg-danger/10 transition-colors disabled:opacity-50"
+              >
+                {deactivate.isPending ? <Spinner size="xs" /> : <PowerOff size={11} />}
+                Deactivate
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RegisterDeviceModal({
+  onClose,
+}: {
+  onClose: () => void
+}) {
+  const create = useCreateDevice()
+  const [form, setForm] = useState({ name: '', type: 'POS' as DeviceType })
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    create.mutate(form, { onSuccess: onClose })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-background-card border border-border rounded-xl w-full max-w-sm p-6 space-y-5 shadow-xl">
+        <div className="flex items-center gap-2">
+          <Printer size={16} className="text-primary-500" />
+          <h3 className="text-sm font-bold text-foreground">Register Device</h3>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Device Name</label>
+            <input
+              required
+              value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+              placeholder="e.g. Counter 1 POS"
+              className={fieldCls}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Device Type</label>
+            <select
+              value={form.type}
+              onChange={e => setForm(f => ({ ...f, type: e.target.value as DeviceType }))}
+              className={cn(fieldCls, 'cursor-pointer')}
+            >
+              {(Object.entries(DEVICE_TYPE_LABELS) as [DeviceType, string][]).map(([v, l]) => (
+                <option key={v} value={v}>{l}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex gap-2 justify-end pt-2">
+            <button type="button" onClick={onClose}
+              className="px-4 py-2 text-sm rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors">
+              Cancel
+            </button>
+            <Button type="submit" size="sm" className="gap-1.5" disabled={create.isPending}>
+              {create.isPending ? <Spinner size="xs" /> : <Plus size={13} />} Register
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function DevicesSection({ disabled }: { disabled: boolean }) {
+  const { data: devices, isLoading } = useDevices()
+  const [showModal, setShowModal] = useState(false)
+
+  const active   = devices?.filter(d => d.isActive)  ?? []
+  const inactive = devices?.filter(d => !d.isActive) ?? []
+
+  return (
+    <>
+      {showModal && <RegisterDeviceModal onClose={() => setShowModal(false)} />}
+
+      <div className="bg-background-card border border-border rounded-xl p-6 space-y-5">
+        <div className="flex items-center gap-2 pb-2 border-b border-border">
+          <Printer size={15} className="text-primary-500" />
+          <h3 className="text-sm font-bold text-foreground">Devices</h3>
+          <span className="text-[11px] text-muted-foreground ml-auto">OWNER only</span>
+          {!disabled && (
+            <Button size="sm" className="gap-1.5 ml-2" onClick={() => setShowModal(true)}>
+              <Plus size={13} /> Register Device
+            </Button>
+          )}
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Spinner size="lg" className="text-primary-500" />
+          </div>
+        ) : active.length === 0 && inactive.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
+            <Printer size={28} className="text-muted-foreground/40" />
+            <p className="text-sm font-medium text-muted-foreground">No devices registered yet</p>
+            {!disabled && (
+              <p className="text-xs text-muted-foreground">Click &quot;Register Device&quot; to add your first POS terminal or printer.</p>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {active.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Active ({active.length})</p>
+                {active.map(d => <DeviceRow key={d.id} device={d} />)}
+              </div>
+            )}
+            {inactive.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Inactive ({inactive.length})</p>
+                {inactive.map(d => <DeviceRow key={d.id} device={d} />)}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
+// ─── Permissions section ─────────────────────────────────────────────────────
+
+const CONFIGURABLE_ROLES: ConfigurableRole[] = ['MANAGER', 'CASHIER', 'WAITER', 'CHEF', 'INVENTORY_MANAGER']
+
+const ROLE_LABELS: Record<ConfigurableRole, string> = {
+  MANAGER:           'Manager',
+  CASHIER:           'Cashier',
+  WAITER:            'Waiter',
+  CHEF:              'Chef',
+  INVENTORY_MANAGER: 'Inventory Mgr',
+}
+
+// Hardcoded to avoid an extra network request — matches the API's AVAILABLE_PERMISSIONS list exactly
+const PERMISSION_GROUPS: { domain: string; items: { key: string; label: string; hint?: string }[] }[] = [
+  {
+    domain: 'Billing',
+    items: [
+      { key: 'BILLING:discount', label: 'Apply Discounts',  hint: 'Can discount a bill without manager approval' },
+      { key: 'BILLING:void',     label: 'Void Bills',       hint: 'Can void an entire bill or order' },
+      { key: 'BILLING:settle',   label: 'Settle Bills',     hint: 'Can mark a bill as paid' },
+    ],
+  },
+  {
+    domain: 'Orders',
+    items: [
+      { key: 'ORDERS:cancel',       label: 'Cancel Orders',   hint: 'Can cancel a placed order' },
+      { key: 'ORDERS:kot_override', label: 'Override KOT',    hint: 'Can force-reprint or override a KOT' },
+    ],
+  },
+  {
+    domain: 'Menu',
+    items: [
+      { key: 'MENU:edit',         label: 'Edit Menu',           hint: 'Can edit items, prices, and categories' },
+      { key: 'MENU:availability', label: 'Toggle Availability', hint: 'Can mark items in/out of stock' },
+    ],
+  },
+  {
+    domain: 'Reports',
+    items: [
+      { key: 'REPORTS:sales', label: 'Sales Reports', hint: 'Can view daily and period sales' },
+      { key: 'REPORTS:staff', label: 'Staff Reports',  hint: 'Can view staff performance data' },
+    ],
+  },
+  {
+    domain: 'Inventory',
+    items: [
+      { key: 'INVENTORY:view',   label: 'View Stock',   hint: 'Can view stock levels' },
+      { key: 'INVENTORY:manage', label: 'Manage Stock', hint: 'Can add, adjust, and write-off stock' },
+    ],
+  },
+  {
+    domain: 'Staff',
+    items: [
+      { key: 'STAFF:manage', label: 'Manage Staff', hint: 'Can create and deactivate staff accounts' },
+    ],
+  },
+  {
+    domain: 'Customers',
+    items: [
+      { key: 'CUSTOMERS:view',   label: 'View Customers',   hint: 'Can see customer contact details' },
+      { key: 'CUSTOMERS:export', label: 'Export Customers', hint: 'Can export customer data' },
+    ],
+  },
+  {
+    domain: 'Settings',
+    items: [
+      { key: 'SETTINGS:printer', label: 'Printer Settings', hint: 'Can change printer and KOT config' },
+    ],
+  },
+]
+
+function PermissionsSection({ disabled }: { disabled: boolean }) {
+  const { data: byRole, isLoading } = useAllPermissions()
+  const grant  = useGrantPermission()
+  const revoke = useRevokePermission()
+
+  const [activeRole, setActiveRole] = useState<ConfigurableRole>('MANAGER')
+
+  const granted = new Set<string>(byRole?.[activeRole] ?? [])
+
+  function handleToggle(permission: string, currentlyGranted: boolean) {
+    if (currentlyGranted) {
+      revoke.mutate({ role: activeRole, permission })
+    } else {
+      grant.mutate({ role: activeRole, permission })
+    }
+  }
+
+  const isBusy = grant.isPending || revoke.isPending
+
+  return (
+    <div className="bg-background-card border border-border rounded-xl p-6 space-y-5">
+      {/* Header */}
+      <div className="flex items-center gap-2 pb-2 border-b border-border">
+        <Shield size={15} className="text-primary-500" />
+        <h3 className="text-sm font-bold text-foreground">Roles &amp; Permissions</h3>
+        <span className="text-[11px] text-muted-foreground ml-auto">OWNER only</span>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8">
+          <Spinner size="lg" className="text-primary-500" />
+        </div>
+      ) : (
+        <>
+          {/* Role tabs */}
+          <div className="flex gap-1 flex-wrap">
+            {CONFIGURABLE_ROLES.map(role => (
+              <button
+                key={role}
+                onClick={() => setActiveRole(role)}
+                className={cn(
+                  'px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors',
+                  activeRole === role
+                    ? 'bg-primary-500 text-white'
+                    : 'bg-background border border-border text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {ROLE_LABELS[role]}
+                {byRole?.[role]?.length ? (
+                  <span className={cn(
+                    'ml-1.5 text-[10px] font-bold',
+                    activeRole === role ? 'text-white/70' : 'text-primary-500',
+                  )}>
+                    {byRole[role]?.length}
+                  </span>
+                ) : null}
+              </button>
+            ))}
+          </div>
+
+          {/* Permission groups */}
+          <div className="space-y-4">
+            {PERMISSION_GROUPS.map(({ domain, items }) => (
+              <div key={domain}>
+                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
+                  {domain}
+                </p>
+                <div className="space-y-2">
+                  {items.map(({ key, label, hint }) => {
+                    const isGranted = granted.has(key)
+                    return (
+                      <div key={key} className="flex items-center justify-between gap-4 py-1">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{label}</p>
+                          {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
+                        </div>
+                        <Toggle
+                          checked={isGranted}
+                          onChange={() => handleToggle(key, isGranted)}
+                          disabled={disabled || isBusy}
+                        />
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {disabled && (
+            <p className="text-[11px] text-muted-foreground text-center pt-1">
+              Only the OWNER can modify role permissions.
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -404,7 +836,9 @@ export default function SettingsPage() {
           <>
             {data.tenant  && <RestaurantSection tenant={data.tenant}   disabled={!isOwner} />}
             {data.outlet  && <OutletSection     outlet={data.outlet}   disabled={false} />}
-            <POSSection settings={data.settings} disabled={!isOwner} />
+            <POSSection         settings={data.settings} disabled={!isOwner} />
+            <DevicesSection     disabled={!isOwner} />
+            <PermissionsSection disabled={!isOwner} />
           </>
         )}
       </div>

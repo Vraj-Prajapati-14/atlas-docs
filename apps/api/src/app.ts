@@ -30,6 +30,8 @@ import { registerPlugin } from './modules/register/index.js'
 import { onboardingPlugin } from './modules/onboarding/index.js'
 import { adminPlugin } from './modules/admin/index.js'
 import { staffNotificationsPlugin } from './modules/staff-notifications/index.js'
+import { devicesPlugin } from './modules/devices/index.js'
+import { permissionsPlugin } from './modules/permissions/index.js'
 
 export async function buildApp() {
   const app = Fastify({
@@ -133,6 +135,8 @@ export async function buildApp() {
       await v1.register(onboardingPlugin, { prefix: '/onboarding' })
       await v1.register(adminPlugin, { prefix: '/admin' })
       await v1.register(staffNotificationsPlugin, { prefix: '/staff-notifications' })
+      await v1.register(devicesPlugin, { prefix: '/devices' })
+      await v1.register(permissionsPlugin, { prefix: '/permissions' })
       v1.log.info('API v1 routes registered')
     },
     { prefix: '/api/v1' },

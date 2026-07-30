@@ -73,6 +73,7 @@ export interface JWTPayload {
   tenantId: string
   role: string
   sessionId: string
+  onboardingCompleted?: boolean
   iat?: number             // set by JWT library at sign time
   exp?: number             // set by JWT library at sign time
 }

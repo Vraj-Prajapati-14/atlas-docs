@@ -62,23 +62,30 @@ async function createSession(
   const rawRefresh = makeRefreshToken()
   const expiresAt = new Date(Date.now() + REFRESH_TTL_DAYS * 24 * 60 * 60 * 1000)
 
-  const session = await prisma.userSession.create({
-    data: {
-      userId: user.id,
-      tenantId: user.tenantId,
-      refreshToken: hashToken(rawRefresh),
-      deviceInfo: deviceInfo ?? null,
-      ipAddress: ipAddress ?? null,
-      expiresAt,
-    },
-    select: { id: true },
-  })
+  const [session, tenant] = await Promise.all([
+    prisma.userSession.create({
+      data: {
+        userId: user.id,
+        tenantId: user.tenantId,
+        refreshToken: hashToken(rawRefresh),
+        deviceInfo: deviceInfo ?? null,
+        ipAddress: ipAddress ?? null,
+        expiresAt,
+      },
+      select: { id: true },
+    }),
+    prisma.tenant.findUnique({
+      where: { id: user.tenantId },
+      select: { onboardingCompletedAt: true },
+    }),
+  ])
 
   const accessToken = app.jwt.sign({
     sub: user.id,
     tenantId: user.tenantId,
     role: user.role,
     sessionId: session.id,
+    onboardingCompleted: tenant?.onboardingCompletedAt !== null && tenant?.onboardingCompletedAt !== undefined,
   })
 
   return { accessToken, refreshToken: rawRefresh, expiresIn: ACCESS_TTL_SECONDS }
@@ -309,30 +316,37 @@ export async function refreshTokens(
   const rawRefresh = makeRefreshToken()
   const newExpiresAt = new Date(Date.now() + REFRESH_TTL_DAYS * 24 * 60 * 60 * 1000)
 
-  // Atomic rotation: revoke old session, create new one
-  const newSession = await prisma.$transaction(async (tx) => {
-    await tx.userSession.update({
-      where: { id: session.id },
-      data: { revokedAt: new Date() },
-    })
-    return tx.userSession.create({
-      data: {
-        userId: session.userId,
-        tenantId: session.tenantId,
-        refreshToken: hashToken(rawRefresh),
-        deviceInfo: session.deviceInfo,
-        ipAddress: session.ipAddress,
-        expiresAt: newExpiresAt,
-      },
-      select: { id: true },
-    })
-  })
+  // Atomic rotation: revoke old session, create new one — query tenant in parallel
+  const [newSession, tenant] = await Promise.all([
+    prisma.$transaction(async (tx) => {
+      await tx.userSession.update({
+        where: { id: session.id },
+        data: { revokedAt: new Date() },
+      })
+      return tx.userSession.create({
+        data: {
+          userId: session.userId,
+          tenantId: session.tenantId,
+          refreshToken: hashToken(rawRefresh),
+          deviceInfo: session.deviceInfo,
+          ipAddress: session.ipAddress,
+          expiresAt: newExpiresAt,
+        },
+        select: { id: true },
+      })
+    }),
+    prisma.tenant.findUnique({
+      where: { id: session.tenantId },
+      select: { onboardingCompletedAt: true },
+    }),
+  ])
 
   const accessToken = app.jwt.sign({
     sub: session.user.id,
     tenantId: session.user.tenantId,
     role: session.user.role,
     sessionId: newSession.id,
+    onboardingCompleted: tenant?.onboardingCompletedAt !== null && tenant?.onboardingCompletedAt !== undefined,
   })
 
   return { accessToken, refreshToken: rawRefresh, expiresIn: ACCESS_TTL_SECONDS }

@@ -2,13 +2,15 @@ import { prisma, Prisma } from '@atlas/db'
 import { NotFoundError } from '../../shared/errors.js'
 
 export const WIZARD_STEPS = [
+  'outletTypeDone',
+  'featuresDone',
   'brandingDone',
   'restaurantProfileDone',
-  'menuDone',
   'tablesDone',
+  'menuDone',
   'staffDone',
   'paymentSetupDone',
-  'firstOrderDone',
+  'devicesDone',
 ] as const
 
 export type WizardStepKey = typeof WIZARD_STEPS[number]
@@ -33,6 +35,8 @@ export async function getOnboardingSteps(tenantId: string) {
 }
 
 export interface UpdateStepsInput {
+  outletTypeDone?: boolean
+  featuresDone?: boolean
   brandingDone?: boolean
   restaurantProfileDone?: boolean
   outletDone?: boolean
@@ -41,6 +45,7 @@ export interface UpdateStepsInput {
   staffDone?: boolean
   paymentSetupDone?: boolean
   firstOrderDone?: boolean
+  devicesDone?: boolean
 }
 
 export async function updateOnboardingSteps(tenantId: string, input: UpdateStepsInput) {
